@@ -151,6 +151,7 @@
     </div>
     <div id="webcamControls" class="source-controls" style="display: none;">
       <button id="webcamBtn" class="btn-primary" type="button">เปิดกล้อง</button>
+      <select id="cameraSelect" hidden></select>
       <p class="section-note" id="webcamStatus"></p>
     </div>
   </section>
@@ -280,7 +281,7 @@
   "use strict";
 
   var el = {};
-  ["fileControls", "webcamControls", "fileInput", "webcamBtn", "webcamStatus",
+  ["fileControls", "webcamControls", "fileInput", "webcamBtn", "cameraSelect", "webcamStatus",
    "origCanvas", "origFrame", "placeholder", "dogCanvas", "dogFrame",
    "procResLabel", "frameTimeLabel", "fpsLabel",
    "sigma1Slider", "sigma1Val", "kSlider", "kVal", "gainSlider", "gainVal",
@@ -487,20 +488,47 @@
     video.play().catch(function (err) { console.warn(err); });
   });
 
-  el.webcamBtn.addEventListener("click", function () {
+  // Camera enumeration only returns real labels/full device list once
+  // permission has been granted at least once — so this always runs
+  // *after* a successful getUserMedia call, never before.
+  function populateCameraList(activeStream) {
+    if (!navigator.mediaDevices.enumerateDevices) { el.cameraSelect.hidden = true; return; }
+    navigator.mediaDevices.enumerateDevices().then(function (devices) {
+      var cams = devices.filter(function (d) { return d.kind === "videoinput"; });
+      if (cams.length > 1) {
+        el.cameraSelect.innerHTML = cams.map(function (c, i) {
+          return '<option value="' + c.deviceId + '">' + (c.label || ("กล้อง " + (i + 1))) + "</option>";
+        }).join("");
+        var activeTrack = activeStream && activeStream.getVideoTracks()[0];
+        var activeId = activeTrack && activeTrack.getSettings ? activeTrack.getSettings().deviceId : null;
+        if (activeId) el.cameraSelect.value = activeId;
+        el.cameraSelect.hidden = false;
+      } else {
+        el.cameraSelect.hidden = true;
+      }
+    }).catch(function () { el.cameraSelect.hidden = true; });
+  }
+
+  function openCamera(deviceId) {
     el.webcamStatus.textContent = "กำลังขอสิทธิ์กล้อง...";
-    navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: false })
+    var videoConstraints = deviceId
+      ? { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } }
+      : { width: { ideal: 640 }, height: { ideal: 480 } };
+    navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false })
       .then(function (s) {
         stopCurrentSource();
         stream = s;
         video.srcObject = s;
         video.play().catch(function (err) { console.warn(err); });
         el.webcamStatus.textContent = "กล้องเปิดอยู่";
+        populateCameraList(s);
       })
       .catch(function (err) {
         el.webcamStatus.textContent = "เปิดกล้องไม่สำเร็จ: " + (err && err.message ? err.message : String(err));
       });
-  });
+  }
+  el.webcamBtn.addEventListener("click", function () { openCamera(); });
+  el.cameraSelect.addEventListener("change", function () { openCamera(el.cameraSelect.value); });
 
   el.qualitySelect.addEventListener("change", function () { if (videoActive) applyResolution(); });
 
