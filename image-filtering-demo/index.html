@@ -1,0 +1,827 @@
+<title>Window Scanning — Smoothing, Edge, LoG/DoG Filters</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- Open Graph / Social sharing -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Window Scanning — Smoothing, Edge, LoG/DoG Filters">
+<meta property="og:description" content="Average/Gaussian, Prewitt/Sobel ครบ 8 ทิศ, Roberts, LoG, DoG — เติม noise แล้ว hover ดูค่าพิกเซลและการคำนวณ kernel จริง">
+<meta property="og:url" content="https://urban.cpe.ku.ac.th/image_processing/demos/image-filtering-demo/">
+<meta property="og:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/image-filtering-demo/og.png">
+<meta property="og:image:width" content="1731">
+<meta property="og:image:height" content="909">
+<meta property="og:site_name" content="Image Processing Demos">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Window Scanning — Smoothing, Edge, LoG/DoG Filters">
+<meta name="twitter:description" content="Average/Gaussian, Prewitt/Sobel ครบ 8 ทิศ, Roberts, LoG, DoG — เติม noise แล้ว hover ดูค่าพิกเซลและการคำนวณ kernel จริง">
+<meta name="twitter:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/image-filtering-demo/og.png">
+<style>
+  :root {
+    --bg: #f4f3f5;
+    --surface: #ffffff;
+    --surface-2: #ececee;
+    --border: #dcdadf;
+    --text-primary: #201f24;
+    --text-secondary: #524f5a;
+    --text-muted: #86828e;
+    --accent: #6a4fb0;
+    --accent-ink: #ffffff;
+    --neg: #2f6fb0;
+    --pos: #c2650f;
+    --shadow: 0 1px 2px rgba(32, 31, 36, 0.06), 0 8px 24px rgba(32, 31, 36, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141318;
+      --surface: #1c1a21;
+      --surface-2: #26232b;
+      --border: #38343f;
+      --text-primary: #eeecf1;
+      --text-secondary: #c3bfcb;
+      --text-muted: #86828e;
+      --accent: #a98fe0;
+      --accent-ink: #14101c;
+      --neg: #6b9bd8;
+      --pos: #e0924a;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 12px 32px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141318;
+    --surface: #1c1a21;
+    --surface-2: #26232b;
+    --border: #38343f;
+    --text-primary: #eeecf1;
+    --text-secondary: #c3bfcb;
+    --text-muted: #86828e;
+    --accent: #a98fe0;
+    --accent-ink: #14101c;
+    --neg: #6b9bd8;
+    --pos: #e0924a;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 12px 32px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text-primary);
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .page { max-width: 1060px; margin: 0 auto; padding: 40px 20px 80px; display: flex; flex-direction: column; gap: 26px; }
+  .hero { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow { margin: 0; font: 600 12px/1 -apple-system, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  h1 { margin: 0; font-family: Charter, "Iowan Old Style", "Noto Serif Thai", Georgia, serif; font-weight: 600; font-size: clamp(26px,3.6vw,38px); text-wrap: balance; }
+  .lede { margin: 0; max-width: 68ch; color: var(--text-secondary); font-size: 16px; }
+  section.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+
+  .narrative { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .insight { display: flex; gap: 12px; align-items: flex-start; opacity: .28; filter: grayscale(.4); transition: opacity .35s ease, filter .35s ease; }
+  .insight.active { opacity: 1; filter: none; }
+  .insight .dot { flex: none; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--border); }
+  .insight.active .dot { background: var(--accent); }
+  .insight p { margin: 0; font-family: Charter, "Iowan Old Style", "Noto Serif Thai", Georgia, serif; font-size: 16px; }
+  .insight b { font-weight: 700; }
+  .insight .k-accent { color: var(--accent); }
+  .insight .k-neg { color: var(--neg); }
+  .insight .k-pos { color: var(--pos); }
+
+  .section-title { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; }
+  .section-note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+
+  .step-panel { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+
+  .preset-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button.action {
+    font: 600 13px -apple-system, sans-serif; color: var(--text-secondary);
+    background: var(--surface-2); border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 8px 14px; cursor: pointer;
+  }
+  button.action.primary { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+  button.action.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+  input[type="file"] { font-size: 12.5px; color: var(--text-secondary); }
+
+  .filter-controls { display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: flex-end; }
+  .kernel-preview { margin-top: 4px; padding-top: 14px; border-top: 1px dashed var(--border); overflow-x: auto; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+  select {
+    font: 600 13px -apple-system, sans-serif; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text-primary);
+  }
+  .sigma-field { display: flex; align-items: center; gap: 8px; }
+  input[type="range"] { accent-color: var(--accent); }
+  .sigma-value { font: 700 13px/1 ui-monospace, "SF Mono", Consolas, monospace; min-width: 2.4em; text-align: right; }
+  .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary); }
+  .toggle-row input { accent-color: var(--accent); }
+
+  .canvas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .canvas-grid { grid-template-columns: 1fr; } }
+  .canvas-box { display: flex; flex-direction: column; gap: 6px; }
+  .canvas-box h4 { margin: 0; font-size: 12.5px; font-weight: 700; color: var(--text-secondary); }
+  .canvas-frame { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+  canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; cursor: crosshair; }
+  .hover-marker {
+    position: absolute; width: 9px; height: 9px; border: 2px solid var(--accent);
+    border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none;
+    box-shadow: 0 0 0 1.5px var(--surface); display: none;
+  }
+
+  .inspect-panel { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+  .inspect-empty { font-size: 13px; color: var(--text-muted); font-style: italic; }
+  .inspect-body { display: none; flex-direction: column; gap: 16px; }
+  .inspect-grids { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 640px) { .inspect-grids { grid-template-columns: 1fr; } }
+  .grid-block h4 { margin: 0 0 6px; font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+  table.pixel-grid { border-collapse: collapse; font: 700 11px/1 ui-monospace, "SF Mono", Consolas, monospace; }
+  table.pixel-grid td {
+    width: 44px; height: 32px; text-align: center; border: 1px solid var(--border);
+    color: var(--text-secondary); background: var(--surface-2); position: relative;
+  }
+  table.pixel-grid td.center { border: 2px solid var(--accent); font-weight: 700; color: var(--text-primary); }
+  table.pixel-grid td.kernel-cell { background: color-mix(in srgb, var(--accent) 14%, var(--surface-2)); color: var(--text-primary); }
+  table.pixel-grid td .wcell { position: absolute; top: 1px; left: 2px; font-size: 8px; font-weight: 600; color: var(--accent); }
+
+  .calc-panel { display: flex; flex-direction: column; gap: 10px; }
+  .calc-panel h4 { margin: 0; font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+  .calc-terms { display: flex; flex-wrap: wrap; gap: 6px; font: 600 12px ui-monospace, "SF Mono", Consolas, monospace; }
+  .calc-term { padding: 3px 7px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); }
+  .calc-term.neg { color: var(--neg); }
+  .calc-term.pos { color: var(--pos); }
+  .calc-sum { font: 700 13px ui-monospace, "SF Mono", Consolas, monospace; color: var(--text-primary); }
+  .calc-final { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 13px; }
+  .calc-final b { font: 700 15px ui-monospace, "SF Mono", Consolas, monospace; }
+
+  .math-panel { padding: 18px 24px; }
+  .math-toggle { font: 600 13.5px -apple-system, sans-serif; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; }
+  .math-body { margin-top: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .kernel-display { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
+  table.kmatrix { border-collapse: collapse; font: 700 12px ui-monospace, "SF Mono", Consolas, monospace; }
+  table.kmatrix td { width: 46px; height: 34px; text-align: center; border: 1px solid var(--border); background: var(--surface-2); }
+  table.kmatrix td.neg { color: var(--neg); }
+  table.kmatrix td.pos { color: var(--pos); }
+  .formula { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 13px; color: var(--text-primary); padding: 12px 14px; background: var(--surface-2); border-radius: 10px; border: 1px solid var(--border); }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  @media (max-width: 480px) {
+    .page { padding: 22px 14px 48px; gap: 18px; }
+    .narrative, .step-panel, .inspect-panel, .math-panel { padding: 16px 16px; }
+  }
+
+  @media (min-width: 1050px) {
+    .page {
+      max-width: min(94vw, 1900px);
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      grid-template-areas:
+        "hero hero"
+        "narrative source"
+        "narrative filter"
+        "narrative canvases"
+        "narrative inspect"
+        "narrative math"
+        "footer footer";
+      gap: 14px 28px;
+      padding: 20px 32px 26px;
+    }
+    .hero { grid-area: hero; }
+    .narrative { grid-area: narrative; position: sticky; top: 18px; align-self: start; max-height: calc(100vh - 36px); overflow-y: auto; }
+    .step-source { grid-area: source; padding: 16px 20px; }
+    .step-filter { grid-area: filter; padding: 16px 20px; }
+    .step-canvases { grid-area: canvases; padding: 16px 20px; }
+    .inspect-panel { grid-area: inspect; padding: 16px 20px; }
+    .math-panel { grid-area: math; padding: 14px 20px; }
+    footer { grid-area: footer; }
+  }
+  @media (min-width: 1900px) { .page { grid-template-columns: 420px 1fr; } }
+</style>
+
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">01204483 Image Processing — Topic 05, Edge Detection</p>
+    <h1>Window Scanning — Smoothing, Edge, LoG/DoG</h1>
+    <p class="lede">
+      เลือกรูป → เลือก filter (window ที่เลื่อนสแกนทั้งภาพ) → เทียบภาพก่อน/หลัง —
+      แล้วเอาเมาส์ไปชี้บนรูปต้นฉบับ จะเห็นค่าพิกเซลจริงรอบจุดนั้นเป็นตาราง 5×5
+      ทั้งก่อนและหลังกรอง พร้อมการคำนวณ kernel × พิกเซล ทีละช่องของตำแหน่งนั้น
+    </p>
+  </header>
+
+  <section class="card narrative">
+    <div class="insight active" id="insA">
+      <span class="dot"></span>
+      <p>Filter ทุกตัวทำงานแบบเดียวกัน: เลื่อน <b class="k-accent">window (kernel)</b> ไปทีละพิกเซลทั่วภาพ แต่ละตำแหน่งคูณค่าพิกเซลรอบ ๆ กับตัวเลขใน kernel แล้วบวกกัน</p>
+    </div>
+    <div class="insight active" id="insB">
+      <span class="dot"></span>
+      <p>Smoothing (Average, Gaussian) ใช้ kernel ที่บวกกันแล้วรวมเป็น 1 — ผลคือค่าเฉลี่ยถ่วงน้ำหนัก ภาพเบลอลง noise ลดลง</p>
+    </div>
+    <div class="insight active" id="insC">
+      <span class="dot"></span>
+      <p>Edge operator (Prewitt, Sobel, Roberts) ใช้ kernel ที่บวกกันได้ <b>0</b> — ฝั่ง <b class="k-neg">ลบ</b> กับฝั่ง <b class="k-pos">บวก</b> หักล้างกันบนพื้นเรียบ แต่ตัดกันแรงตรงขอบภาพ ลองเลือกทิศต่าง ๆ ดูว่าตอบสนองกับขอบแนวไหนแรงสุด</p>
+    </div>
+    <div class="insight active" id="insD">
+      <span class="dot"></span>
+      <p>LoG/DoG คือ "หา edge แบบไม่สนทิศทาง" — เบลอด้วย Gaussian ก่อนแล้วค่อยหาอนุพันธ์อันดับสอง (หรือลบ Gaussian สองระดับ) ทนต่อ noise กว่าอนุพันธ์อันดับหนึ่งตรง ๆ</p>
+    </div>
+    <div class="insight active" id="insE">
+      <span class="dot"></span>
+      <p>เอาเมาส์ชี้บนรูปต้นฉบับด้านล่าง — ช่องที่มีกรอบ<b class="k-accent">ไฮไลต์</b>ในตาราง 5×5 คือพิกเซลที่ kernel ปัจจุบันใช้จริง ตัวเลขเล็ก ๆ มุมช่องคือน้ำหนัก kernel ของช่องนั้น</p>
+    </div>
+  </section>
+
+  <section class="card step-panel step-source">
+    <p class="section-title">1 · เลือกรูปต้นฉบับ</p>
+    <div class="preset-row">
+      <button class="action" id="presetShapes">รูปทรงเรขาคณิต</button>
+      <button class="action" id="presetGradient">Gradient + noise</button>
+      <button class="action" id="presetChecker">ตารางหมากรุก</button>
+      <input type="file" id="fileInput" accept="image/*" />
+    </div>
+    <p class="section-note">ประมวลผลที่ความละเอียด 200×150 พิกเซล (ย่อจากไฟล์ที่อัปโหลด) เพื่อให้คำนวณสดได้ทุกครั้งที่เปลี่ยน filter</p>
+
+    <div class="filter-controls">
+      <div class="field">
+        <label for="noiseType">เติม noise ก่อนกรอง</label>
+        <select id="noiseType">
+          <option value="none">ไม่เติม (ภาพต้นฉบับล้วน)</option>
+          <option value="gaussian">Gaussian noise</option>
+          <option value="saltpepper">Salt &amp; Pepper</option>
+        </select>
+      </div>
+      <div class="field" id="noiseParamWrap" hidden>
+        <label id="noiseParamLabel">ความแรง</label>
+        <div class="sigma-field">
+          <input type="range" id="noiseParam" min="0" max="40" step="2" value="15" />
+          <span class="sigma-value" id="noiseParamValue">15</span>
+        </div>
+      </div>
+    </div>
+    <p class="section-note">Noise เติมบนภาพต้นฉบับ (base) ทุกครั้งที่ปรับพารามิเตอร์ — ไม่ทบทวี (ไม่ใช่เติมซ้ำบนภาพที่มี noise อยู่แล้ว) เพื่อให้เทียบผลของ filter การลด noise แต่ละแบบได้ตรง ๆ</p>
+  </section>
+
+  <section class="card step-panel step-filter">
+    <p class="section-title">2 · เลือก Filter</p>
+    <div class="filter-controls">
+      <div class="field">
+        <label for="categorySelect">หมวด</label>
+        <select id="categorySelect">
+          <option value="none">ไม่มีการกรองใดๆ (No filter)</option>
+          <option value="smooth">Smoothing</option>
+          <option value="prewitt">Prewitt (edge)</option>
+          <option value="sobel">Sobel (edge)</option>
+          <option value="roberts">Roberts (edge)</option>
+          <option value="logdog">LoG / DoG</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="subSelect">ตัวเลือก</label>
+        <select id="subSelect"></select>
+      </div>
+      <div class="field" id="sigmaField1Wrap" hidden>
+        <label id="sigmaLabel1">σ</label>
+        <div class="sigma-field">
+          <input type="range" id="sigma1" min="0.4" max="2.2" step="0.1" value="1.0" />
+          <span class="sigma-value" id="sigma1Value">1.0</span>
+        </div>
+      </div>
+      <div class="field" id="sigmaField2Wrap" hidden>
+        <label id="sigmaLabel2">σ₂ (surround)</label>
+        <div class="sigma-field">
+          <input type="range" id="sigma2" min="0.5" max="3.0" step="0.1" value="1.6" />
+          <span class="sigma-value" id="sigma2Value">1.6</span>
+        </div>
+      </div>
+      <label class="toggle-row">
+        <input type="checkbox" id="signedToggle" />
+        แสดงภาพแบบมีเครื่องหมาย (128=ศูนย์) แทน absolute+clip
+      </label>
+    </div>
+    <div class="kernel-preview">
+      <p class="section-note" style="font-weight:700; margin-bottom:8px;">Kernel ของตัวเลือกนี้:</p>
+      <div class="kernel-display" id="kernelDisplay"></div>
+    </div>
+  </section>
+
+  <section class="card step-panel step-canvases">
+    <p class="section-title">3 · เทียบภาพก่อน/หลัง — เอาเมาส์ชี้บนรูปต้นฉบับ</p>
+    <div class="canvas-grid">
+      <div class="canvas-box">
+        <h4>ต้นฉบับ (grayscale)</h4>
+        <div class="canvas-frame">
+          <canvas id="origCanvas"></canvas>
+          <div class="hover-marker" id="markerOrig"></div>
+        </div>
+      </div>
+      <div class="canvas-box">
+        <h4>หลังผ่าน Filter</h4>
+        <div class="canvas-frame">
+          <canvas id="filtCanvas"></canvas>
+          <div class="hover-marker" id="markerFilt"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card inspect-panel">
+    <p class="section-title">4 · รายละเอียดที่ตำแหน่งเมาส์</p>
+    <p class="inspect-empty" id="inspectEmpty">เอาเมาส์ไปชี้บนรูปต้นฉบับด้านบน เพื่อดูค่าพิกเซลและการคำนวณตรงตำแหน่งนั้น</p>
+    <div class="inspect-body" id="inspectBody">
+      <p class="section-note" id="posLabel">ตำแหน่ง —</p>
+      <div class="inspect-grids">
+        <div class="grid-block">
+          <h4>ต้นฉบับ 5×5 (ช่องไฮไลต์ = ใช้จริงใน kernel นี้)</h4>
+          <table class="pixel-grid" id="gridOrig"></table>
+        </div>
+        <div class="grid-block">
+          <h4>หลัง Filter 5×5 (ค่าจริงก่อน clip)</h4>
+          <table class="pixel-grid" id="gridFilt"></table>
+        </div>
+      </div>
+      <div class="calc-panel">
+        <h4>การคำนวณที่ตำแหน่งกึ่งกลาง</h4>
+        <div class="calc-terms" id="calcTerms"></div>
+        <div class="calc-final" id="calcFinal"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card math-panel">
+    <button class="math-toggle" id="mathToggle" aria-expanded="false">แสดงสูตร convolution ทั่วไป</button>
+    <div class="math-body" id="mathBody" hidden>
+      <div class="formula" id="formulaText">output(x,y) = Σᵢ Σⱼ kernel(i,j) · image(x+j−c, y+i−c)</div>
+    </div>
+  </section>
+
+  <footer>
+    รูปตัวอย่างสร้างขึ้นในเบราว์เซอร์เพื่อการสอน — เส้นขอบใช้ clamp พิกเซลขอบภาพซ้ำ (replicate border) และค่าที่แสดงในภาพหลัง filter เป็นค่าที่ clip ไว้ 0–255 เพื่อแสดงผล ส่วนตัวเลขจริงก่อน clip ดูได้จากตาราง/การคำนวณด้านบน
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var WORK_W = 200, WORK_H = 150;
+
+    // ---------- kernel generation (verified numerically before writing this file) ----------
+    function gaussianKernel(size, sigma) {
+      var c = (size - 1) / 2, k = [], sum = 0;
+      for (var i = 0; i < size; i++) {
+        k.push([]);
+        for (var j = 0; j < size; j++) {
+          var x = j - c, y = i - c;
+          var v = Math.exp(-(x * x + y * y) / (2 * sigma * sigma));
+          k[i].push(v); sum += v;
+        }
+      }
+      for (var i = 0; i < size; i++) for (var j = 0; j < size; j++) k[i][j] /= sum;
+      return k;
+    }
+    function logKernel(size, sigma) {
+      var c = (size - 1) / 2, k = [], sum = 0, n = size * size;
+      for (var i = 0; i < size; i++) {
+        k.push([]);
+        for (var j = 0; j < size; j++) {
+          var x = j - c, y = i - c, r2 = x * x + y * y, s2 = sigma * sigma;
+          var v = -1 / (Math.PI * s2 * s2) * (1 - r2 / (2 * s2)) * Math.exp(-r2 / (2 * s2));
+          k[i].push(v); sum += v;
+        }
+      }
+      var mean = sum / n;
+      for (var i = 0; i < size; i++) for (var j = 0; j < size; j++) k[i][j] -= mean;
+      return k;
+    }
+    function averageKernel(size) {
+      var k = [], v = 1 / (size * size);
+      for (var i = 0; i < size; i++) { var row = []; for (var j = 0; j < size; j++) row.push(v); k.push(row); }
+      return k;
+    }
+    function subtractKernels(a, b) {
+      return a.map(function (row, i) { return row.map(function (v, j) { return v - b[i][j]; }); });
+    }
+
+    var PREWITT = {
+      E:  [[-1,0,1],[-1,0,1],[-1,0,1]],
+      S:  [[-1,-1,-1],[0,0,0],[1,1,1]],
+      N:  [[1,1,1],[0,0,0],[-1,-1,-1]],
+      W:  [[1,0,-1],[1,0,-1],[1,0,-1]],
+      NE: [[0,1,1],[-1,0,1],[-1,-1,0]],
+      SE: [[-1,-1,0],[-1,0,1],[0,1,1]],
+      NW: [[1,1,0],[1,0,-1],[0,-1,-1]],
+      SW: [[0,-1,-1],[1,0,-1],[1,1,0]]
+    };
+    var SOBEL = {
+      E:  [[-1,0,1],[-2,0,2],[-1,0,1]],
+      S:  [[-1,-2,-1],[0,0,0],[1,2,1]],
+      N:  [[1,2,1],[0,0,0],[-1,-2,-1]],
+      W:  [[1,0,-1],[2,0,-2],[1,0,-1]],
+      NE: [[0,1,2],[-1,0,1],[-2,-1,0]],
+      SE: [[-2,-1,0],[-1,0,1],[0,1,2]],
+      NW: [[2,1,0],[1,0,-1],[0,-1,-2]],
+      SW: [[0,-1,-2],[1,0,-1],[2,1,0]]
+    };
+    var ROBERTS = { Gx: [[1,0],[0,-1]], Gy: [[0,1],[-1,0]] };
+    var DIR_LABEL = { N:"เหนือ (N)", NE:"ตะวันออกเฉียงเหนือ (NE)", E:"ตะวันออก (E) = Gx", SE:"ตะวันออกเฉียงใต้ (SE)",
+      S:"ใต้ (S) = Gy", SW:"ตะวันตกเฉียงใต้ (SW)", W:"ตะวันตก (W)", NW:"ตะวันตกเฉียงเหนือ (NW)" };
+    var DIR_ORDER = ["E","SE","S","SW","W","NW","N","NE"];
+
+    // ---------- filter catalog: {kind:'single', kernel} | {kind:'magnitude', kx, ky} ----------
+    function buildCatalog() {
+      var s1 = Number(el.sigma1.value), s2 = Number(el.sigma2.value);
+      var cat = {};
+      cat.none = [
+        { key: "identity", label: "ไม่กรอง (ภาพต้นฉบับ)", kind: "single", kernel: [[1]] }
+      ];
+      cat.smooth = [
+        { key: "avg", label: "Average (3×3)", kind: "single", kernel: averageKernel(3) },
+        { key: "gauss", label: "Gaussian (5×5, σ=" + s1.toFixed(1) + ")", kind: "single", kernel: gaussianKernel(5, s1) }
+      ];
+      function directional(D) {
+        var opts = DIR_ORDER.map(function (d) {
+          return { key: d, label: DIR_LABEL[d], kind: "single", kernel: D[d] };
+        });
+        opts.push({ key: "mag", label: "ขนาดรวม (Magnitude = √(Gx²+Gy²))", kind: "magnitude", kx: D.E, ky: D.S });
+        return opts;
+      }
+      cat.prewitt = directional(PREWITT);
+      cat.sobel = directional(SOBEL);
+      cat.roberts = [
+        { key: "gx", label: "Gx (แนวทแยง ╲)", kind: "single", kernel: ROBERTS.Gx },
+        { key: "gy", label: "Gy (แนวทแยง ╱)", kind: "single", kernel: ROBERTS.Gy },
+        { key: "mag", label: "ขนาดรวม (Magnitude)", kind: "magnitude", kx: ROBERTS.Gx, ky: ROBERTS.Gy }
+      ];
+      cat.logdog = [
+        { key: "log", label: "LoG (5×5, σ=" + s1.toFixed(1) + ")", kind: "single", kernel: logKernel(5, s1) },
+        { key: "dog", label: "DoG (5×5, σ₁=" + s1.toFixed(1) + ", σ₂=" + s2.toFixed(1) + ")", kind: "single",
+          kernel: subtractKernels(gaussianKernel(5, s1), gaussianKernel(5, s2)) }
+      ];
+      return cat;
+    }
+
+    // ---------- convolution ----------
+    function clampCoord(v, max) { return Math.min(Math.max(v, 0), max - 1); }
+    function convolveAt(img, w, h, x, y, kernel) {
+      var kh = kernel.length, kw = kernel[0].length;
+      var offRow = Math.floor((kh - 1) / 2), offCol = Math.floor((kw - 1) / 2);
+      var sum = 0;
+      for (var i = 0; i < kh; i++) {
+        for (var j = 0; j < kw; j++) {
+          var sx = clampCoord(x + (j - offCol), w), sy = clampCoord(y + (i - offRow), h);
+          sum += img[sy * w + sx] * kernel[i][j];
+        }
+      }
+      return sum;
+    }
+    function applyFilter(img, w, h, op) {
+      var out = new Float64Array(w * h);
+      if (op.kind === "single") {
+        for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) out[y * w + x] = convolveAt(img, w, h, x, y, op.kernel);
+      } else {
+        for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+          var gx = convolveAt(img, w, h, x, y, op.kx), gy = convolveAt(img, w, h, x, y, op.ky);
+          out[y * w + x] = Math.sqrt(gx * gx + gy * gy);
+        }
+      }
+      return out;
+    }
+
+    // ---------- DOM refs ----------
+    var el = {};
+    ["categorySelect", "subSelect", "sigmaField1Wrap", "sigmaLabel1", "sigma1", "sigma1Value",
+     "sigmaField2Wrap", "sigmaLabel2", "sigma2", "sigma2Value", "signedToggle",
+     "origCanvas", "filtCanvas", "markerOrig", "markerFilt",
+     "presetShapes", "presetGradient", "presetChecker", "fileInput",
+     "noiseType", "noiseParamWrap", "noiseParamLabel", "noiseParam", "noiseParamValue",
+     "inspectEmpty", "inspectBody", "posLabel", "gridOrig", "gridFilt", "calcTerms", "calcFinal",
+     "mathToggle", "mathBody", "kernelDisplay", "formulaText"
+    ].forEach(function (id) { el[id] = document.getElementById(id); });
+
+    var origCtx = el.origCanvas.getContext("2d");
+    var filtCtx = el.filtCanvas.getContext("2d");
+    el.origCanvas.width = WORK_W; el.origCanvas.height = WORK_H;
+    el.filtCanvas.width = WORK_W; el.filtCanvas.height = WORK_H;
+
+    var baseGrayData = new Float64Array(WORK_W * WORK_H); // clean, before noise
+    var grayData = new Float64Array(WORK_W * WORK_H);     // base + noise (fed into filters)
+    var filteredData = new Float64Array(WORK_W * WORK_H);
+    var currentOp = null;
+
+    // ---------- noise (applied to the clean base image, never compounded) ----------
+    function gaussianRandom(mean, sd) {
+      var u = 1 - Math.random(), v = Math.random();
+      var z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+      return mean + z * sd;
+    }
+    function clamp255(v) { return Math.min(255, Math.max(0, v)); }
+    function applyNoise(base) {
+      var type = el.noiseType.value;
+      if (type === "none") return base.slice();
+      var out = base.slice();
+      if (type === "gaussian") {
+        var sigma = Number(el.noiseParam.value);
+        for (var p = 0; p < out.length; p++) out[p] = clamp255(out[p] + gaussianRandom(0, sigma));
+      } else if (type === "saltpepper") {
+        var frac = Number(el.noiseParam.value) / 100;
+        for (var p = 0; p < out.length; p++) {
+          var r = Math.random();
+          if (r < frac / 2) out[p] = 0;
+          else if (r < frac) out[p] = 255;
+        }
+      }
+      return out;
+    }
+    function updateNoiseControls() {
+      var type = el.noiseType.value;
+      el.noiseParamWrap.hidden = type === "none";
+      if (type === "gaussian") {
+        el.noiseParamLabel.textContent = "ความแรง (σ ของ noise)";
+        el.noiseParam.min = 0; el.noiseParam.max = 50; el.noiseParam.step = 2;
+        if (Number(el.noiseParam.value) > 50) el.noiseParam.value = 15;
+      } else if (type === "saltpepper") {
+        el.noiseParamLabel.textContent = "สัดส่วนพิกเซลที่เสีย (%)";
+        el.noiseParam.min = 0; el.noiseParam.max = 25; el.noiseParam.step = 1;
+        if (Number(el.noiseParam.value) > 25) el.noiseParam.value = 5;
+      }
+      el.noiseParamValue.textContent = el.noiseParam.value;
+    }
+    function recomputeGray() {
+      grayData = applyNoise(baseGrayData);
+      recompute();
+    }
+
+    // ---------- source image presets ----------
+    function toGray(imageData) {
+      var d = imageData.data, out = new Float64Array(WORK_W * WORK_H);
+      for (var p = 0; p < WORK_W * WORK_H; p++) {
+        var o = p * 4;
+        out[p] = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2];
+      }
+      return out;
+    }
+    function loadFromCanvasDrawing(drawFn) {
+      var tmp = document.createElement("canvas");
+      tmp.width = WORK_W; tmp.height = WORK_H;
+      var tctx = tmp.getContext("2d");
+      drawFn(tctx);
+      baseGrayData = toGray(tctx.getImageData(0, 0, WORK_W, WORK_H));
+      recomputeGray();
+    }
+    function drawShapes(ctx) {
+      ctx.fillStyle = "#e9e9ea"; ctx.fillRect(0, 0, WORK_W, WORK_H);
+      ctx.fillStyle = "#202020"; ctx.fillRect(20, 20, 55, 55);
+      ctx.fillStyle = "#9a9a9a"; ctx.beginPath(); ctx.arc(140, 45, 32, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#404040"; ctx.lineWidth = 14;
+      ctx.beginPath(); ctx.moveTo(15, 130); ctx.lineTo(120, 60); ctx.stroke();
+      ctx.fillStyle = "#f4f4f4"; ctx.fillRect(150, 95, 40, 40);
+      ctx.strokeStyle = "#141414"; ctx.lineWidth = 3; ctx.strokeRect(150, 95, 40, 40);
+    }
+    function drawGradientNoise(ctx) {
+      var g = ctx.createLinearGradient(0, 0, WORK_W, 0);
+      g.addColorStop(0, "#101010"); g.addColorStop(1, "#f0f0f0");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, WORK_W, WORK_H);
+      var id = ctx.getImageData(0, 0, WORK_W, WORK_H);
+      for (var p = 0; p < id.data.length; p += 4) {
+        var n = (Math.random() - 0.5) * 60;
+        id.data[p] = Math.min(255, Math.max(0, id.data[p] + n));
+        id.data[p + 1] = id.data[p]; id.data[p + 2] = id.data[p];
+      }
+      ctx.putImageData(id, 0, 0);
+    }
+    function drawChecker(ctx) {
+      var cell = 16;
+      for (var y = 0; y < WORK_H; y += cell) {
+        for (var x = 0; x < WORK_W; x += cell) {
+          var on = ((x / cell + y / cell) % 2) === 0;
+          ctx.fillStyle = on ? "#ededee" : "#252527";
+          ctx.fillRect(x, y, cell, cell);
+        }
+      }
+    }
+    function setPresetActive(btn) {
+      [el.presetShapes, el.presetGradient, el.presetChecker].forEach(function (b) { b.classList.remove("active"); });
+      if (btn) btn.classList.add("active");
+    }
+    el.presetShapes.addEventListener("click", function () { setPresetActive(el.presetShapes); loadFromCanvasDrawing(drawShapes); });
+    el.presetGradient.addEventListener("click", function () { setPresetActive(el.presetGradient); loadFromCanvasDrawing(drawGradientNoise); });
+    el.presetChecker.addEventListener("click", function () { setPresetActive(el.presetChecker); loadFromCanvasDrawing(drawChecker); });
+    el.fileInput.addEventListener("change", function (e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var img = new Image();
+      img.onload = function () {
+        setPresetActive(null);
+        loadFromCanvasDrawing(function (ctx) {
+          var scale = Math.max(WORK_W / img.width, WORK_H / img.height);
+          var dw = img.width * scale, dh = img.height * scale;
+          ctx.drawImage(img, (WORK_W - dw) / 2, (WORK_H - dh) / 2, dw, dh);
+        });
+        URL.revokeObjectURL(img.src);
+      };
+      img.src = URL.createObjectURL(file);
+    });
+
+    // ---------- filter selection UI ----------
+    var CATEGORY_LABELS = { none: "ไม่มีการกรองใดๆ", smooth: "Smoothing", prewitt: "Prewitt", sobel: "Sobel", roberts: "Roberts", logdog: "LoG / DoG" };
+    function refreshSubOptions() {
+      var cat = buildCatalog()[el.categorySelect.value];
+      el.subSelect.innerHTML = cat.map(function (o) { return '<option value="' + o.key + '">' + o.label + "</option>"; }).join("");
+    }
+    function currentCategoryUsesSigma() {
+      var v = el.categorySelect.value;
+      return v === "smooth" || v === "logdog";
+    }
+    function updateSigmaVisibility() {
+      var isSmoothOrLog = currentCategoryUsesSigma();
+      var isGaussSub = el.categorySelect.value === "smooth" && el.subSelect.value === "gauss";
+      var isLogDog = el.categorySelect.value === "logdog";
+      var showSigma1 = isGaussSub || isLogDog;
+      var showSigma2 = isLogDog && el.subSelect.value === "dog";
+      el.sigmaField1Wrap.hidden = !showSigma1;
+      el.sigmaField2Wrap.hidden = !showSigma2;
+      el.sigmaLabel1.textContent = (el.subSelect.value === "log") ? "σ" : (showSigma2 ? "σ₁ (center)" : "σ");
+    }
+
+    function getCurrentOp() {
+      var cat = buildCatalog()[el.categorySelect.value];
+      var found = cat.filter(function (o) { return o.key === el.subSelect.value; })[0];
+      return found || cat[0];
+    }
+
+    function recompute() {
+      currentOp = getCurrentOp();
+      filteredData = applyFilter(grayData, WORK_W, WORK_H, currentOp);
+      renderCanvases();
+      renderKernelPanel();
+      if (lastHover) renderInspect(lastHover.x, lastHover.y);
+    }
+
+    function renderCanvases() {
+      var origImgData = origCtx.createImageData(WORK_W, WORK_H);
+      for (var p = 0; p < WORK_W * WORK_H; p++) {
+        var v = Math.round(grayData[p]);
+        origImgData.data[p * 4] = v; origImgData.data[p * 4 + 1] = v; origImgData.data[p * 4 + 2] = v; origImgData.data[p * 4 + 3] = 255;
+      }
+      origCtx.putImageData(origImgData, 0, 0);
+
+      var signed = el.signedToggle.checked;
+      var filtImgData = filtCtx.createImageData(WORK_W, WORK_H);
+      for (var p = 0; p < WORK_W * WORK_H; p++) {
+        var raw = filteredData[p], disp;
+        if (signed) disp = Math.min(255, Math.max(0, Math.round(raw + 128)));
+        else disp = Math.min(255, Math.max(0, Math.round(Math.abs(raw))));
+        filtImgData.data[p * 4] = disp; filtImgData.data[p * 4 + 1] = disp; filtImgData.data[p * 4 + 2] = disp; filtImgData.data[p * 4 + 3] = 255;
+      }
+      filtCtx.putImageData(filtImgData, 0, 0);
+    }
+
+    function fmt(n) { return (Math.round(n * 100) / 100).toString(); }
+
+    function renderKernelPanel() {
+      var op = currentOp;
+      function kernelTable(kernel, title) {
+        var maxAbs = 0;
+        kernel.forEach(function (row) { row.forEach(function (v) { maxAbs = Math.max(maxAbs, Math.abs(v)); }); });
+        var html = "<div><div class=\"section-note\" style=\"margin-bottom:6px;font-weight:700\">" + title + "</div><table class=\"kmatrix\"><tbody>";
+        kernel.forEach(function (row) {
+          html += "<tr>";
+          row.forEach(function (v) {
+            var cls = v > 0.0001 ? "pos" : (v < -0.0001 ? "neg" : "");
+            html += '<td class="' + cls + '">' + fmt(v) + "</td>";
+          });
+          html += "</tr>";
+        });
+        html += "</tbody></table></div>";
+        return html;
+      }
+      if (op.kind === "single") {
+        el.kernelDisplay.innerHTML = kernelTable(op.kernel, "Kernel ที่ใช้จริง");
+      } else {
+        el.kernelDisplay.innerHTML = kernelTable(op.kx, "Gx") + kernelTable(op.ky, "Gy") +
+          '<div class="section-note">Magnitude = √(Gx² + Gy²) ต่อพิกเซล</div>';
+      }
+    }
+
+    // ---------- hover inspect ----------
+    var lastHover = null;
+    function canvasToImageCoord(canvasEl, evt) {
+      var rect = canvasEl.getBoundingClientRect();
+      var px = (evt.clientX - rect.left) / rect.width * WORK_W;
+      var py = (evt.clientY - rect.top) / rect.height * WORK_H;
+      return { x: clampCoord(Math.floor(px), WORK_W), y: clampCoord(Math.floor(py), WORK_H) };
+    }
+    function positionMarker(markerEl, canvasEl, x, y) {
+      var pctX = (x + 0.5) / WORK_W * 100, pctY = (y + 0.5) / WORK_H * 100;
+      markerEl.style.left = pctX + "%"; markerEl.style.top = pctY + "%"; markerEl.style.display = "block";
+    }
+
+    function renderInspect(cx, cy) {
+      lastHover = { x: cx, y: cy };
+      el.inspectEmpty.style.display = "none";
+      el.inspectBody.style.display = "flex";
+      el.posLabel.textContent = "ตำแหน่ง: x=" + cx + ", y=" + cy;
+
+      var op = currentOp;
+      var kh, kw, offRow, offCol;
+      if (op.kind === "single") { kh = op.kernel.length; kw = op.kernel[0].length; }
+      else { kh = op.kx.length; kw = op.kx[0].length; }
+      offRow = Math.floor((kh - 1) / 2); offCol = Math.floor((kw - 1) / 2);
+      var gridCenter = 2; // 5x5 grid, index 0..4
+      var kStartRow = gridCenter - offRow, kStartCol = gridCenter - offCol;
+
+      function buildGrid(tableEl, dataArr, showKernelOverlay) {
+        var html = "";
+        for (var gr = 0; gr < 5; gr++) {
+          html += "<tr>";
+          for (var gc = 0; gc < 5; gc++) {
+            var ix = clampCoord(cx + (gc - 2), WORK_W), iy = clampCoord(cy + (gr - 2), WORK_H);
+            var v = dataArr[iy * WORK_W + ix];
+            var isCenter = gr === 2 && gc === 2;
+            var inKernel = showKernelOverlay && gr >= kStartRow && gr < kStartRow + kh && gc >= kStartCol && gc < kStartCol + kw;
+            var cls = (isCenter ? "center " : "") + (inKernel && !isCenter ? "kernel-cell" : "");
+            var weightLabel = "";
+            if (inKernel && op.kind === "single") weightLabel = '<span class="wcell">' + fmt(op.kernel[gr - kStartRow][gc - kStartCol]) + "</span>";
+            html += '<td class="' + cls + '">' + weightLabel + Math.round(v) + "</td>";
+          }
+          html += "</tr>";
+        }
+        tableEl.innerHTML = html;
+      }
+      buildGrid(el.gridOrig, grayData, true);
+      buildGrid(el.gridFilt, filteredData, false);
+
+      // worked calculation for the center pixel
+      function computeTerms(kernel) {
+        var terms = [], sum = 0;
+        for (var i = 0; i < kh; i++) {
+          for (var j = 0; j < kw; j++) {
+            var sx = clampCoord(cx + (j - offCol), WORK_W), sy = clampCoord(cy + (i - offRow), WORK_H);
+            var pv = Math.round(grayData[sy * WORK_W + sx]);
+            var w = kernel[i][j];
+            sum += w * pv;
+            terms.push({ w: w, pv: pv });
+          }
+        }
+        return { terms: terms, sum: sum };
+      }
+      function termsHTML(terms) {
+        return terms.map(function (t) {
+          var cls = t.w > 0.0001 ? "pos" : (t.w < -0.0001 ? "neg" : "");
+          return '<span class="calc-term ' + cls + '">' + fmt(t.w) + "×" + t.pv + "</span>";
+        }).join("");
+      }
+
+      if (op.kind === "single") {
+        var r = computeTerms(op.kernel);
+        el.calcTerms.innerHTML = termsHTML(r.terms);
+        el.calcFinal.innerHTML = 'ผลรวม = <b>' + fmt(r.sum) + "</b> (ค่าที่แสดงในภาพ = clip(" +
+          (el.signedToggle.checked ? "ผลรวม+128" : "|ผลรวม|") + ", 0, 255) = <b>" +
+          Math.min(255, Math.max(0, Math.round(el.signedToggle.checked ? r.sum + 128 : Math.abs(r.sum)))) + "</b>)";
+      } else {
+        var rx = computeTerms(op.kx), ry = computeTerms(op.ky);
+        var mag = Math.sqrt(rx.sum * rx.sum + ry.sum * ry.sum);
+        el.calcTerms.innerHTML =
+          '<div class="section-note" style="width:100%;font-weight:700">Gx:</div>' + termsHTML(rx.terms) +
+          '<div class="section-note" style="width:100%;font-weight:700;margin-top:4px">Gy:</div>' + termsHTML(ry.terms);
+        el.calcFinal.innerHTML = "Gx = <b>" + fmt(rx.sum) + "</b> · Gy = <b>" + fmt(ry.sum) +
+          "</b> · Magnitude = √(Gx²+Gy²) = <b>" + fmt(mag) + "</b>";
+      }
+    }
+
+    function attachHover(canvasEl) {
+      canvasEl.addEventListener("mousemove", function (evt) {
+        var c = canvasToImageCoord(canvasEl, evt);
+        positionMarker(el.markerOrig, el.origCanvas, c.x, c.y);
+        positionMarker(el.markerFilt, el.filtCanvas, c.x, c.y);
+        renderInspect(c.x, c.y);
+      });
+      canvasEl.addEventListener("mouseleave", function () {
+        el.markerOrig.style.display = "none"; el.markerFilt.style.display = "none";
+      });
+    }
+    attachHover(el.origCanvas);
+    attachHover(el.filtCanvas);
+
+    // ---------- events ----------
+    el.categorySelect.addEventListener("change", function () { refreshSubOptions(); updateSigmaVisibility(); recompute(); });
+    el.subSelect.addEventListener("change", function () { updateSigmaVisibility(); recompute(); });
+    el.sigma1.addEventListener("input", function () { el.sigma1Value.textContent = Number(el.sigma1.value).toFixed(1); refreshSubOptions(); recompute(); });
+    el.sigma2.addEventListener("input", function () { el.sigma2Value.textContent = Number(el.sigma2.value).toFixed(1); refreshSubOptions(); recompute(); });
+    el.signedToggle.addEventListener("change", recompute);
+    el.noiseType.addEventListener("change", function () { updateNoiseControls(); recomputeGray(); });
+    el.noiseParam.addEventListener("input", function () { el.noiseParamValue.textContent = el.noiseParam.value; recomputeGray(); });
+    el.mathToggle.addEventListener("click", function () {
+      var show = el.mathBody.hidden;
+      el.mathBody.hidden = !show;
+      el.mathToggle.setAttribute("aria-expanded", String(show));
+      el.mathToggle.textContent = show ? "ซ่อนสูตร" : "แสดงสูตร convolution ทั่วไป";
+    });
+
+    // ---------- init ----------
+    refreshSubOptions();
+    updateSigmaVisibility();
+    updateNoiseControls();
+    setPresetActive(el.presetShapes);
+    loadFromCanvasDrawing(drawShapes);
+  })();
+</script>

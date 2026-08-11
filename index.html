@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Image Processing Demos</title>
+<meta name="description" content="Interactive demos for Digital Image Processing">
+
+<style>
+  :root {
+    --bg: #f5f7f6;
+    --surface: #ffffff;
+    --surface-2: #eef4f1;
+    --border: #dde4e0;
+    --text-primary: #1c2422;
+    --text-secondary: #4c5850;
+    --text-muted: #7c8a82;
+    --accent: #046a52;
+    --accent-ink: #ffffff;
+    --shadow: 0 1px 2px rgba(4, 40, 30, 0.06), 0 8px 24px rgba(4, 40, 30, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1613;
+      --surface: #171f1b;
+      --surface-2: #1f2925;
+      --border: #303d37;
+      --text-primary: #ecf2ef;
+      --text-secondary: #bdc9c2;
+      --text-muted: #8a978f;
+      --accent: #3fcaa3;
+      --accent-ink: #08160f;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1613;
+    --surface: #171f1b;
+    --surface-2: #1f2925;
+    --border: #303d37;
+    --text-primary: #ecf2ef;
+    --text-secondary: #bdc9c2;
+    --text-muted: #8a978f;
+    --accent: #3fcaa3;
+    --accent-ink: #08160f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text-primary);
+    font-family: "Noto Sans Thai", -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+  }
+
+  .page { max-width: 1080px; margin: 0 auto; padding: 48px 24px 80px; display: flex; flex-direction: column; gap: 34px; }
+
+  .hero { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow {
+    margin: 0; font: 700 12px/1 -apple-system, sans-serif;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent);
+  }
+  h1 {
+    margin: 0; font-family: Charter, "Iowan Old Style", "Noto Serif Thai", Georgia, serif;
+    font-weight: 600; font-size: clamp(30px, 5vw, 46px); line-height: 1.15; text-wrap: balance;
+  }
+  .lede { margin: 0; max-width: 68ch; color: var(--text-secondary); font-size: 16.5px; }
+
+  section.topic { display: flex; flex-direction: column; gap: 14px; }
+  .topic-title {
+    margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-muted); font-weight: 700;
+  }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; }
+
+  a.card {
+    display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: inherit;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px; box-shadow: var(--shadow);
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  a.card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .card-title {
+    font-family: Charter, "Iowan Old Style", "Noto Serif Thai", Georgia, serif;
+    font-weight: 700; font-size: 17px; color: var(--text-primary);
+  }
+  .card-desc { color: var(--text-secondary); font-size: 13.5px; }
+  .tag {
+    align-self: flex-start; margin-top: 4px; padding: 3px 10px; border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+    color: var(--accent); font-size: 11.5px; font-weight: 700;
+  }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 480px) {
+    .page { padding: 28px 16px 56px; gap: 26px; }
+  }
+  @media (min-width: 1400px) {
+    .page { max-width: min(90vw, 1500px); }
+  }
+  @media (min-width: 1900px) {
+    .page { max-width: min(88vw, 2000px); }
+    .grid { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  }
+</style>
+
+<!-- Open Graph / Social sharing -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Image Processing Demos">
+<meta property="og:description" content="Interactive demonstrations for exploring concepts in computer vision and digital image processing.">
+<meta property="og:url" content="https://urban.cpe.ku.ac.th/image_processing/demos/">
+<meta property="og:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/image-processing-demos-og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="Image Processing Demos">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Image Processing Demos">
+<meta name="twitter:description" content="Interactive demonstrations for computer vision and digital image processing.">
+<meta name="twitter:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/image-processing-demos-og.png">
+
+<!-- Google Analytics: replace GA_MEASUREMENT_ID with the same ID used by urban.cpe.ku.ac.th -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'GA_MEASUREMENT_ID');
+</script>
+
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <p class="eyebrow">01204483 Image Processing</p>
+      <h1>Image Processing Demos</h1>
+      <p class="lede">
+        Interactive demonstrations for exploring concepts in computer vision and digital image
+        processing — เปิดตรง ๆ ในเบราว์เซอร์ได้ทันที ไม่ต้องมี server
+      </p>
+    </header>
+
+    <section class="topic">
+      <p class="topic-title">02 — Introduction to Computer Vision</p>
+      <div class="grid">
+
+        <a class="card" href="bayes-fish-demo/">
+          <div class="card-title">Salmon หรือ Seabass?</div>
+          <div class="card-desc">
+            สุ่มตัวอย่างจาก population จริง แล้วจำแนกด้วย Bayes กับ Logistic
+            Regression เทียบเส้นแบ่งกับ population จริงทั้งหมด
+          </div>
+          <span class="tag">Bayes Classification</span>
+        </a>
+
+        <a class="card" href="bayes-rain-demo/">
+          <div class="card-title">ฝนจะตกไหม — Bayes' Theorem</div>
+          <div class="card-desc">
+            ทยอยเปิดเผยหลักฐาน (ฤดู, เวลา, เมฆ) แล้วดู prior ถูก likelihood
+            ถ่วงน้ำหนักจนกลายเป็น posterior แบบ live
+          </div>
+          <span class="tag">Bayes' Theorem</span>
+        </a>
+
+        <a class="card" href="pens-confusion-matrix-demo/">
+          <div class="card-title">ปากกาในกล่อง — Confusion Matrix</div>
+          <div class="card-desc">
+            Dataset → Query → คลิกผลจริง แล้วดู TP/FP/TN/FN, Recall,
+            Precision คำนวณสดจากสิ่งที่เลือก
+          </div>
+          <span class="tag">Classification Metrics</span>
+        </a>
+
+      </div>
+    </section>
+
+    <section class="topic">
+      <p class="topic-title">03 — Digital Images and 2D Preprocessing</p>
+      <div class="grid">
+
+        <a class="card" href="sampling-quantization-demo/">
+          <div class="card-title">Sampling &amp; Quantization</div>
+          <div class="card-desc">
+            เห็นข้อมูลที่หายไปจริง ๆ จาก spatial sampling และ intensity
+            quantization พร้อมพรีเซ็ตสาธิต Nyquist limit / aliasing
+          </div>
+          <span class="tag">Digital Images</span>
+        </a>
+
+        <a class="card" href="histogram-equalization-demo/">
+          <div class="card-title">Histogram Equalization</div>
+          <div class="card-desc">
+            เทียบ full-image กับการเลือกช่วง (band) ทำ HE เฉพาะจุด
+            คล้าย window/level ในภาพการแพทย์
+          </div>
+          <span class="tag">Histogram</span>
+        </a>
+
+      </div>
+    </section>
+
+    <section class="topic">
+      <p class="topic-title">04 — Color Processing</p>
+      <div class="grid">
+
+        <a class="card" href="color-models-demo/">
+          <div class="card-title">สี 6 โมเดล — RGB, HSV, HSL, XYZ, YCrCb, CMYK</div>
+          <div class="card-desc">
+            hover สีบนรูป แล้วดูตำแหน่งเดียวกันปรากฏพร้อมกันในทั้ง 6 โมเดล
+            ลากค่าจากโมเดลไหนก็กำหนดสีเองได้
+          </div>
+          <span class="tag">Color Processing</span>
+        </a>
+
+      </div>
+    </section>
+
+    <section class="topic">
+      <p class="topic-title">05 — Edge Detection</p>
+      <div class="grid">
+
+        <a class="card" href="image-filtering-demo/">
+          <div class="card-title">Window Scanning — Smoothing, Edge, LoG/DoG</div>
+          <div class="card-desc">
+            Average/Gaussian, Prewitt/Sobel ครบ 8 ทิศ, Roberts, LoG, DoG —
+            เติม noise แล้ว hover ดูค่าพิกเซลและการคำนวณ kernel จริง
+          </div>
+          <span class="tag">Filtering</span>
+        </a>
+
+        <a class="card" href="log-derivation-demo/">
+          <div class="card-title">Laplacian of Gaussian — จากไหนมา ทำไมต้องมี</div>
+          <div class="card-desc">
+            ไล่เหตุผลทีละขั้น: ทำไม blur ก่อน HPF, รวม Gaussian+Laplacian
+            เป็น operator เดียว, ไปจนถึงสูตรปิด — ดูได้ทั้ง 1D และ 2D
+          </div>
+          <span class="tag">LoG</span>
+        </a>
+
+        <a class="card" href="video-dog-demo/">
+          <div class="card-title">Live DoG Filter — วิดีโอสด/ไฟล์ ผ่าน Difference of Gaussians</div>
+          <div class="card-desc">
+            เปิดกล้องหรืออัปโหลดไฟล์วิดีโอ กรองแบบ real-time ด้วย DoG ทั้งหมดในเบราว์เซอร์
+            ปรับ σ, k, gain แล้วดูขอบเปลี่ยนสด ๆ
+          </div>
+          <span class="tag">DoG / Real-time</span>
+        </a>
+
+      </div>
+    </section>
+
+    <section class="topic">
+      <p class="topic-title">06 — Corner Detection</p>
+      <div class="grid">
+
+        <a class="card" href="harris-corner-demo/">
+          <div class="card-title">Harris Corner — Eigenvalue บอกอะไร</div>
+          <div class="card-desc">
+            hover บนภาพดู structure tensor, eigenvalue/eigenvector, scatter
+            ของ gradient กับวงรี PCA เปลี่ยนรูปร่างตามพื้นราบ/ขอบ/มุม
+          </div>
+          <span class="tag">Harris Corner</span>
+        </a>
+
+      </div>
+    </section>
+
+    <section class="topic">
+      <p class="topic-title">07 — Hough Transforms</p>
+      <div class="grid">
+
+        <a class="card" href="hough-transform-demo/">
+          <div class="card-title">Hough Transform — จุด กลายเป็นเส้นโค้งได้อย่างไร</div>
+          <div class="card-desc">
+            เลือกเส้นตรงหรือวงกลม คลิกวางจุดเอง ดูเส้นโค้งที่แต่ละจุดโหวตใน
+            accumulator แล้วดูรูปทรงที่ตรวจพบวาดกลับบนภาพ
+          </div>
+          <span class="tag">Hough Transform</span>
+        </a>
+
+      </div>
+    </section>
+
+    <section class="topic">
+      <p class="topic-title">08 — Fourier Transforms</p>
+      <div class="grid">
+
+        <a class="card" href="nyquist-aliasing-demo/">
+          <div class="card-title">Nyquist &amp; Aliasing — ทำไมสุ่มไม่พอถึง "จำผิดความถี่"</div>
+          <div class="card-desc">
+            ลาก f ผ่านเส้น Nyquist ดูสัญญาณเสมือน (aliased) โผล่ทับจุดตัวอย่างพอดี
+            + เทียบภาพ downsample ตรง ๆ (alias) กับเบลอก่อน (anti-alias)
+          </div>
+          <span class="tag">Nyquist / Aliasing</span>
+        </a>
+
+      </div>
+    </section>
+
+    <section class="topic">
+      <p class="topic-title">09 — Wavelet Transforms</p>
+      <div class="grid">
+
+        <a class="card" href="basis-decomposition-demo/">
+          <div class="card-title">Fourier, DCT, Wavelet — series ของสัมประสิทธิ์</div>
+          <div class="card-desc">
+            สลายสัญญาณเป็นสัมประสิทธิ์บน basis ต่างกัน เก็บแค่ Top-K แล้ว
+            reconstruct เทียบกับ lowpass+downsample ที่งบเท่ากัน
+          </div>
+          <span class="tag">Wavelet Transform</span>
+        </a>
+
+      </div>
+    </section>
+
+    <footer>
+      Department of Computer Engineering · Kasetsart University
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,560 @@
+<title>Nyquist &amp; Aliasing — ทำไมสุ่มตัวอย่างไม่พอ ถึง "จำผิดความถี่"</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- Open Graph / Social sharing -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Nyquist &amp; Aliasing — ทำไมสุ่มตัวอย่างไม่พอ ถึง &quot;จำผิดความถี่&quot;">
+<meta property="og:description" content="ลาก f ผ่านเส้น Nyquist ดูสัญญาณเสมือน (aliased) โผล่ทับจุดตัวอย่างพอดี + เทียบภาพ downsample ตรง ๆ (alias) กับเบลอก่อน (anti-alias)">
+<meta property="og:url" content="https://urban.cpe.ku.ac.th/image_processing/demos/nyquist-aliasing-demo/">
+<meta property="og:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/nyquist-aliasing-demo/og.png">
+<meta property="og:image:width" content="1734">
+<meta property="og:image:height" content="907">
+<meta property="og:site_name" content="Image Processing Demos">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Nyquist &amp; Aliasing — ทำไมสุ่มตัวอย่างไม่พอ ถึง &quot;จำผิดความถี่&quot;">
+<meta name="twitter:description" content="ลาก f ผ่านเส้น Nyquist ดูสัญญาณเสมือน (aliased) โผล่ทับจุดตัวอย่างพอดี + เทียบภาพ downsample ตรง ๆ (alias) กับเบลอก่อน (anti-alias)">
+<meta name="twitter:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/nyquist-aliasing-demo/og.png">
+<style>
+  :root {
+    --bg: #f6f3f4;
+    --surface: #ffffff;
+    --surface-2: #efe7ea;
+    --border: #ddd0d5;
+    --text-primary: #271e22;
+    --text-secondary: #5a4a4f;
+    --text-muted: #8f7c81;
+    --accent: #a83266;
+    --accent-ink: #ffffff;
+    --safe: #1f8c6b;
+    --alias: #b0392c;
+    --shadow: 0 1px 2px rgba(39, 30, 34, 0.06), 0 8px 24px rgba(39, 30, 34, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1c1418; --surface: #241a1f; --surface-2: #2e2228; --border: #453339;
+      --text-primary: #f3ebee; --text-secondary: #d0bcc3; --text-muted: #95828a;
+      --accent: #e07aa8; --accent-ink: #1c0f16;
+      --safe: #4fc79b; --alias: #e0715f;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1c1418; --surface: #241a1f; --surface-2: #2e2228; --border: #453339;
+    --text-primary: #f3ebee; --text-secondary: #d0bcc3; --text-muted: #95828a;
+    --accent: #e07aa8; --accent-ink: #1c0f16;
+    --safe: #4fc79b; --alias: #e0715f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text-primary);
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .page { max-width: 1160px; margin: 0 auto; padding: 40px 20px 80px; display: flex; flex-direction: column; gap: 26px; }
+  .hero { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow { margin: 0; font: 600 12px/1 -apple-system, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+  h1 { margin: 0; font-family: Charter, "Iowan Old Style", "Noto Serif Thai", Georgia, serif; font-weight: 600; font-size: clamp(26px, 3.6vw, 38px); text-wrap: balance; }
+  .lede { margin: 0; max-width: 74ch; color: var(--text-secondary); font-size: 16px; }
+  section.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+
+  .mode-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .radio-chip { display: flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface-2); cursor: pointer; font-size: 13.5px; font-weight: 700; color: var(--text-secondary); }
+  .radio-chip input { accent-color: var(--accent); }
+  .radio-chip.checked { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+
+  section[data-mode-panel] { display: none; }
+  section[data-mode-panel].active { display: flex; }
+
+  .narrative { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .insight { display: flex; gap: 12px; align-items: flex-start; opacity: 0.28; filter: grayscale(0.4); transition: opacity 0.35s ease, filter 0.35s ease; }
+  .insight.active { opacity: 1; filter: none; }
+  .insight .dot { flex: none; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--border); }
+  .insight.active .dot { background: var(--accent); }
+  .insight p { margin: 0; font-family: Charter, "Iowan Old Style", "Noto Serif Thai", Georgia, serif; font-size: 16px; color: var(--text-primary); }
+  .insight b { font-weight: 700; }
+  .insight .k-accent { color: var(--accent); }
+  .insight .k-safe { color: var(--safe); }
+  .insight .k-alias { color: var(--alias); }
+
+  .section-title { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 700; }
+  .section-note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+  .tiny-label { margin: 0 0 4px; font-size: 11.5px; font-weight: 700; color: var(--text-secondary); }
+
+  .step-panel { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+  .filter-controls { display: flex; flex-wrap: wrap; gap: 16px 26px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 200px; flex: 1; }
+  .field label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+  .slider-field { display: flex; align-items: center; gap: 10px; }
+  input[type="range"] { accent-color: var(--accent); flex: 1; }
+  .slider-val { font: 700 13px/1 ui-monospace, "SF Mono", Consolas, monospace; min-width: 4.2em; text-align: right; }
+
+  .status-badge {
+    display: inline-flex; align-self: flex-start; align-items: center; gap: 8px;
+    padding: 8px 16px; border-radius: 999px; font-size: 14.5px; font-weight: 700;
+  }
+  .status-badge.safe { background: color-mix(in srgb, var(--safe) 18%, var(--surface)); color: var(--safe); }
+  .status-badge.alias { background: color-mix(in srgb, var(--alias) 18%, var(--surface)); color: var(--alias); }
+
+  svg.wave-chart { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+  svg.fold-chart { width: 100%; max-width: 640px; height: auto; display: block; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--text-secondary); }
+  .legend-line { width: 16px; height: 0; border-top: 2.5px solid; display: inline-block; margin-right: 5px; vertical-align: middle; }
+
+  .stat-row { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; color: var(--text-secondary); }
+  .stat-row b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+  .img-compare-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+  .img-compare-box { display: flex; flex-direction: column; gap: 6px; }
+  .img-compare-box h5 { margin: 0; font-size: 11.5px; font-weight: 700; color: var(--text-secondary); }
+  .canvas-frame { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-2); max-width: 260px; }
+  canvas.img-canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+
+  .math-panel { padding: 18px 24px; }
+  .math-toggle { font: 600 13.5px -apple-system, sans-serif; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; }
+  .math-body { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .formula { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12.5px; color: var(--text-primary); padding: 10px 12px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border); white-space: pre-wrap; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 480px) {
+    .page { padding: 22px 14px 48px; gap: 18px; }
+    .narrative, .step-panel, .math-panel { padding: 16px 16px; }
+  }
+  @media (min-width: 1050px) {
+    .page {
+      max-width: min(94vw, 1900px);
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      grid-template-areas: "hero hero" "narrative mode" "narrative controls" "narrative viz" "narrative math" "footer footer";
+      gap: 14px 28px;
+      padding: 20px 32px 26px;
+    }
+    .hero { grid-area: hero; }
+    .narrative { grid-area: narrative; position: sticky; top: 18px; align-self: start; max-height: calc(100vh - 36px); overflow-y: auto; }
+    .card.mode-card { grid-area: mode; padding: 14px 20px; }
+    .step-controls { grid-area: controls; padding: 16px 20px; }
+    .step-viz { grid-area: viz; padding: 16px 20px; }
+    .math-panel { grid-area: math; padding: 14px 20px; }
+    footer { grid-area: footer; }
+  }
+  @media (min-width: 1900px) { .page { grid-template-columns: 420px 1fr; } }
+</style>
+
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">01204483 Image Processing — Topic 08, Fourier Transforms</p>
+    <h1>Nyquist &amp; Aliasing — ทำไมสุ่มตัวอย่างไม่พอ ถึง "จำผิดความถี่"</h1>
+    <p class="lede">
+      สุ่มตัวอย่าง (sample) สัญญาณที่ความถี่สูงเกินครึ่งหนึ่งของอัตราสุ่ม แล้วจุดตัวอย่างที่ได้จะ
+      <b>เหมือนกันเป๊ะ</b>กับสัญญาณความถี่ต่ำกว่าอีกตัวหนึ่งเสมอ — ไม่มีทางแยกออกจากกันได้อีกจากตัวอย่างเพียงอย่างเดียว
+      นี่คือ aliasing — ทางแก้คือกรองความถี่สูงทิ้งก่อนสุ่ม ไม่ใช่แก้ทีหลัง
+    </p>
+  </header>
+
+  <section class="card mode-card">
+    <p class="section-title" style="margin-bottom:8px">เลือกโดเมน</p>
+    <div class="mode-row" id="modeRow">
+      <label class="radio-chip checked"><input type="radio" name="domain" value="1d" checked /> 1D (สัญญาณ/เสียง)</label>
+      <label class="radio-chip"><input type="radio" name="domain" value="2d" /> 2D (ภาพ)</label>
+    </div>
+  </section>
+
+  <!-- ============================= 1D MODE ============================= -->
+  <section class="card narrative" data-mode-panel="1d">
+    <div class="insight active" id="d1InsA">
+      <span class="dot"></span>
+      <p>อัตราสุ่มตัวอย่าง f<sub>s</sub> กำหนด <b class="k-accent">ความถี่ Nyquist</b> = f<sub>s</sub>/2 — ความถี่สูงสุดที่ยังสุ่มแล้วไม่กำกวม</p>
+    </div>
+    <div class="insight active" id="d1InsB">
+      <span class="dot"></span>
+      <p>ถ้าความถี่สัญญาณจริง f ≤ Nyquist → <b class="k-safe">ปลอดภัย</b> จุดตัวอย่างที่ได้แทนสัญญาณนี้ได้แบบไม่กำกวม</p>
+    </div>
+    <div class="insight active" id="d1InsC">
+      <span class="dot"></span>
+      <p>ถ้า f &gt; Nyquist → <b class="k-alias">aliased</b> — จุดตัวอย่างที่ได้จะ<b>เหมือนกันเป๊ะ</b>กับสัญญาณความถี่ต่ำกว่าอีกตัว (apparent frequency) คำนวณจาก f<sub>alias</sub> = |f − round(f/f<sub>s</sub>)·f<sub>s</sub>|</p>
+    </div>
+    <div class="insight active" id="d1InsD">
+      <span class="dot"></span>
+      <p>เรียกว่า "frequency folding" — ความถี่เหมือนสะท้อนกลับรอบเส้น Nyquist ซ้ำไปเรื่อย ๆ ทุกครึ่งของ f<sub>s</sub></p>
+    </div>
+    <div class="insight active" id="d1InsE">
+      <span class="dot"></span>
+      <p>เมื่อ alias แล้ว<b>กู้คืนไม่ได้</b> — จุดตัวอย่างไม่พกข้อมูลว่า "แท้จริงมาจากความถี่ไหน" เหลืออยู่เลย นี่คือเหตุผลที่ต้องกรองความถี่สูงทิ้ง<b>ก่อน</b>สุ่ม ไม่ใช่แก้ทีหลัง</p>
+    </div>
+    <div class="insight active" id="d1InsF">
+      <span class="dot"></span>
+      <p>ลองลาก f ผ่านเส้น Nyquist ที่ข้อ 2 ดูเส้นโค้งเสมือน (aliased) โผล่มาทับเส้นเดิมพอดีที่จุดตัวอย่างทุกจุด</p>
+    </div>
+  </section>
+
+  <section class="card step-panel step-controls" data-mode-panel="1d">
+    <p class="section-title">1 · ตั้งค่าความถี่สัญญาณ (f) และอัตราสุ่ม (f<sub>s</sub>)</p>
+    <div class="filter-controls">
+      <div class="field">
+        <label for="freqSlider">ความถี่สัญญาณจริง f (Hz)</label>
+        <div class="slider-field">
+          <input type="range" id="freqSlider" min="10" max="2000" step="10" value="300" />
+          <span class="slider-val" id="freqVal">300 Hz</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fsSlider">อัตราสุ่ม f<sub>s</sub> (Hz)</label>
+        <div class="slider-field">
+          <input type="range" id="fsSlider" min="200" max="2000" step="10" value="1000" />
+          <span class="slider-val" id="fsVal">1000 Hz</span>
+        </div>
+      </div>
+    </div>
+    <span class="status-badge" id="statusBadge1D">—</span>
+  </section>
+
+  <section class="card step-panel step-viz" data-mode-panel="1d">
+    <p class="section-title">2 · สัญญาณจริง vs จุดตัวอย่าง vs สัญญาณเสมือน (ถ้า alias)</p>
+    <p class="section-note">เส้นทึบ = สัญญาณจริงต่อเนื่อง, จุด = ตัวอย่างที่สุ่มได้จริง, เส้นประ = สัญญาณความถี่ต่ำกว่าที่ให้จุดตัวอย่าง<b>ชุดเดียวกันเป๊ะ</b> (โผล่เฉพาะตอน alias)</p>
+    <svg class="wave-chart" id="waveChart" viewBox="0 0 560 160" preserveAspectRatio="xMidYMid meet">
+      <path id="wCurveTrue" fill="none" stroke="var(--text-secondary)" stroke-width="1.5" opacity="0.55" />
+      <path id="wCurveAlias" fill="none" stroke="var(--alias)" stroke-width="2" stroke-dasharray="5,4" opacity="0" />
+      <g id="wDots"></g>
+    </svg>
+    <div class="chart-legend">
+      <span><i class="legend-line" style="border-color:var(--text-secondary)"></i>สัญญาณจริง (ต่อเนื่อง)</span>
+      <span><i class="legend-line" style="border-color:var(--alias)"></i>สัญญาณเสมือน (aliased)</span>
+    </div>
+
+    <p class="tiny-label">Frequency folding — f สะท้อนรอบเส้น Nyquist อย่างไร</p>
+    <svg class="fold-chart" id="foldChart" viewBox="0 0 560 90" preserveAspectRatio="xMidYMid meet">
+      <line id="foldAxis" x1="10" y1="60" x2="550" y2="60" stroke="var(--border)" stroke-width="1" />
+      <line id="nyquistLine" x1="0" y1="14" x2="0" y2="70" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="3,3" />
+      <text id="nyquistLabel" x="0" y="10" font-size="10" fill="var(--accent)" text-anchor="middle">Nyquist</text>
+      <circle id="foldDotTrue" r="5" fill="var(--text-secondary)" />
+      <circle id="foldDotAlias" r="5" fill="var(--alias)" opacity="0" />
+      <line id="foldArrow" x1="0" y1="60" x2="0" y2="60" stroke="var(--alias)" stroke-width="1.5" stroke-dasharray="2,3" opacity="0" />
+    </svg>
+    <p class="stat-row" id="freqStat1D">—</p>
+  </section>
+
+  <!-- ============================= 2D MODE ============================= -->
+  <section class="card narrative" data-mode-panel="2d">
+    <div class="insight active" id="d2InsA">
+      <span class="dot"></span>
+      <p>ภาพก็มี "ความถี่" เหมือนสัญญาณเสียง — ลวดลายที่ซ้ำถี่ ๆ (ลาย, หมากรุก, เส้นขนาน) คือความถี่<b class="k-accent">เชิงพื้นที่</b>สูง</p>
+    </div>
+    <div class="insight active" id="d2InsB">
+      <span class="dot"></span>
+      <p>การลดขนาดภาพ (downsample) คือการลด sample grid — grid ใหม่ก็มี Nyquist limit ของตัวเอง เท่ากับครึ่งหนึ่งของความหนาแน่น sample ใหม่</p>
+    </div>
+    <div class="insight active" id="d2InsC">
+      <span class="dot"></span>
+      <p>ถ้า downsample แบบสุ่มจุดตรง ๆ โดยไม่กรองก่อน ลวดลายที่ถี่เกิน Nyquist ใหม่จะ<b class="k-alias">พับกลับมาเป็นลายผิด ๆ</b> (moiré) ที่ไม่มีอยู่ในภาพจริง</p>
+    </div>
+    <div class="insight active" id="d2InsD">
+      <span class="dot"></span>
+      <p><b class="k-safe">Anti-aliasing</b> = เบลอ (low-pass) ก่อน downsample เสมอ — ตัดความถี่ที่ grid ใหม่แสดงไม่ได้ทิ้งไปตั้งแต่ต้น แทนที่จะปล่อยให้มันพับกลับมาเป็นลายหลอน</p>
+    </div>
+    <div class="insight active" id="d2InsE">
+      <span class="dot"></span>
+      <p>ภาพทดสอบด้านล่างมี 4 โซนความถี่ต่างกัน (ลายตั้ง/นอน/เฉียงไล่ระดับ + หมากรุกถี่คงที่) — เห็นความแตกต่างชัดเจนระหว่างโซนที่ยัง "ปลอดภัย" กับโซนที่เริ่ม alias</p>
+    </div>
+    <div class="insight active" id="d2InsF">
+      <span class="dot"></span>
+      <p>ลองเพิ่ม downsample factor แล้วดู moiré โผล่ในภาพกลาง จากนั้นเพิ่ม blur sigma ดูภาพขวาเรียบลงจนลายหลอนหายไป</p>
+    </div>
+  </section>
+
+  <section class="card step-panel step-controls" data-mode-panel="2d">
+    <p class="section-title">1 · ตั้งค่า Downsample Factor และ Blur (Anti-alias)</p>
+    <div class="filter-controls">
+      <div class="field">
+        <label for="downsampleSlider">Downsample factor (k)</label>
+        <div class="slider-field">
+          <input type="range" id="downsampleSlider" min="2" max="8" step="1" value="4" />
+          <span class="slider-val" id="downsampleVal">4×</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="blurSlider">Blur sigma (ก่อน downsample)</label>
+        <div class="slider-field">
+          <input type="range" id="blurSlider" min="0" max="4" step="0.1" value="1.5" />
+          <span class="slider-val" id="blurVal">1.5</span>
+        </div>
+      </div>
+    </div>
+    <p class="section-note">Nyquist limit ของ grid หลัง downsample ×k คือ 1/(2k) รอบ/พิกเซล — สูงกว่านี้จะ alias ถ้าไม่กรองก่อน</p>
+  </section>
+
+  <section class="card step-panel step-viz" data-mode-panel="2d">
+    <p class="section-title">2 · ต้นฉบับ vs Downsample ตรง ๆ (Alias) vs เบลอก่อน Downsample (Anti-alias)</p>
+    <div class="img-compare-grid">
+      <div class="img-compare-box">
+        <h5>ต้นฉบับ (200×200)</h5>
+        <div class="canvas-frame"><canvas id="imgOrig" class="img-canvas"></canvas></div>
+      </div>
+      <div class="img-compare-box">
+        <h5>Downsample ตรง ๆ — ไม่กรอง (alias)</h5>
+        <div class="canvas-frame"><canvas id="imgAliased" class="img-canvas"></canvas></div>
+      </div>
+      <div class="img-compare-box">
+        <h5>เบลอก่อนแล้วค่อย Downsample (anti-alias)</h5>
+        <div class="canvas-frame"><canvas id="imgClean" class="img-canvas"></canvas></div>
+      </div>
+    </div>
+    <p class="section-note">ทั้งสามภาพแสดงที่ขนาดเท่ากัน (ขยายกลับด้วย nearest-neighbor) เพื่อเทียบลวดลายที่เกิดขึ้นได้ตรง ๆ</p>
+  </section>
+
+  <section class="card math-panel">
+    <button class="math-toggle" id="mathToggle" aria-expanded="false">แสดงสูตรคำนวณ</button>
+    <div class="math-body" id="mathBody" hidden>
+      <div class="formula">Nyquist frequency = f_s / 2   (ความถี่สูงสุดที่สุ่มแล้วไม่กำกวม)</div>
+      <div class="formula">Aliasing (สูตรห้องเรียน): f_alias = | f − round(f / f_s) · f_s |   โดย 0 ≤ f_alias ≤ f_s/2
+  ตัวอย่าง: f=5200 Hz, f_s=8000 Hz → round(5200/8000)=1 → f_alias = |5200−8000| = 2800 Hz</div>
+      <div class="formula">2D (per-axis): Nyquist limit หลัง downsample ทุก k พิกเซล = 1/(2k) รอบ/พิกเซล</div>
+      <div class="formula">Anti-aliasing: กรอง low-pass (เบลอ) ก่อน downsample เพื่อตัดความถี่ &gt; Nyquist ใหม่ทิ้ง — ทำทีหลังไม่ได้ เพราะข้อมูลถูกพับปนกับความถี่จริงไปแล้ว</div>
+    </div>
+  </section>
+
+  <footer>
+    ตัวอย่างสมมติเพื่อการสอน — 1D สร้างจากสูตรไซน์ตรง ๆ (ไม่ใช้เสียงจริง); 2D ใช้ภาพทดสอบสังเคราะห์ 200×200 พิกเซล
+    downsample แบบ point-sample (ไม่เฉลี่ย) เพื่อให้เห็น aliasing ตามทฤษฎีตรง ๆ, anti-alias ใช้ Gaussian blur ขนาด kernel ปรับตาม sigma อัตโนมัติ
+  </footer>
+</div>
+
+<script>
+  (function () {
+    function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+    function clampCoord(v, max) { return Math.min(Math.max(v, 0), max - 1); }
+    var svgNS = "http://www.w3.org/2000/svg";
+
+    // ================= mode switch =================
+    function setMode(mode) {
+      document.querySelectorAll("[data-mode-panel]").forEach(function (p) {
+        p.classList.toggle("active", p.getAttribute("data-mode-panel") === mode);
+      });
+      document.querySelectorAll("#modeRow .radio-chip").forEach(function (c) {
+        c.classList.toggle("checked", c.querySelector("input").checked);
+      });
+    }
+    document.querySelectorAll('input[name="domain"]').forEach(function (r) {
+      r.addEventListener("change", function () { setMode(r.value); });
+    });
+
+    // ================= DOM refs =================
+    var el = {};
+    ["freqSlider", "freqVal", "fsSlider", "fsVal", "statusBadge1D",
+     "wCurveTrue", "wCurveAlias", "wDots", "freqStat1D",
+     "foldAxis", "nyquistLine", "nyquistLabel", "foldDotTrue", "foldDotAlias", "foldArrow",
+     "downsampleSlider", "downsampleVal", "blurSlider", "blurVal",
+     "imgOrig", "imgAliased", "imgClean",
+     "mathToggle", "mathBody"
+    ].forEach(function (id) { el[id] = document.getElementById(id); });
+
+    // ================= 1D aliasing math (verified in Node before writing this file: for many
+    // (f, fs) pairs including edge cases f=fs, f=fs/2, the reconstructed sign*sin(2*pi*f_alias*t)
+    // matches sin(2*pi*f*t) at every sample point t_n=n/fs to within floating-point error) =================
+    function aliasedFreqAndSign(f, fs) {
+      if (fs <= 0) return { freq: f, sign: 1 };
+      var m = Math.round(f / fs);
+      var diff = f - m * fs;
+      return { freq: Math.abs(diff), sign: diff >= 0 ? 1 : -1 };
+    }
+
+    var CW = 560, CH = 160, PADY = 14;
+    var T_WINDOW = 0.02; // seconds shown in the waveform chart (20 ms)
+    function tToX(t) { return (t / T_WINDOW) * CW; }
+    function ampToY(a) { return CH / 2 - a * (CH / 2 - PADY); }
+
+    function render1D() {
+      var f = Number(el.freqSlider.value);
+      var fs = Number(el.fsSlider.value);
+      el.freqVal.textContent = f + " Hz";
+      el.fsVal.textContent = fs + " Hz";
+      var nyquist = fs / 2;
+      var isAliased = f > nyquist;
+
+      el.statusBadge1D.className = "status-badge " + (isAliased ? "alias" : "safe");
+      el.statusBadge1D.textContent = isAliased
+        ? "Aliased — f (" + f + " Hz) > Nyquist (" + nyquist.toFixed(0) + " Hz)"
+        : "ปลอดภัย — f (" + f + " Hz) ≤ Nyquist (" + nyquist.toFixed(0) + " Hz)";
+
+      // continuous true signal
+      var dTrue = "";
+      var steps = 400;
+      for (var i = 0; i <= steps; i++) {
+        var t = (i / steps) * T_WINDOW;
+        var y = ampToY(Math.sin(2 * Math.PI * f * t));
+        dTrue += (i === 0 ? "M" : "L") + tToX(t).toFixed(1) + "," + y.toFixed(1) + " ";
+      }
+      el.wCurveTrue.setAttribute("d", dTrue.trim());
+
+      // sample dots
+      el.wDots.innerHTML = "";
+      var frag = document.createDocumentFragment();
+      var nSamples = Math.floor(T_WINDOW * fs);
+      for (var n = 0; n <= nSamples; n++) {
+        var tn = n / fs;
+        if (tn > T_WINDOW) break;
+        var yv = Math.sin(2 * Math.PI * f * tn);
+        var c = document.createElementNS(svgNS, "circle");
+        c.setAttribute("cx", tToX(tn).toFixed(1));
+        c.setAttribute("cy", ampToY(yv).toFixed(1));
+        c.setAttribute("r", "3.5");
+        c.setAttribute("fill", isAliased ? "var(--alias)" : "var(--safe)");
+        frag.appendChild(c);
+      }
+      el.wDots.appendChild(frag);
+
+      // aliased reconstruction curve (only shown when aliased)
+      if (isAliased) {
+        var r = aliasedFreqAndSign(f, fs);
+        var dAlias = "";
+        for (var i2 = 0; i2 <= steps; i2++) {
+          var t2 = (i2 / steps) * T_WINDOW;
+          var y2 = ampToY(r.sign * Math.sin(2 * Math.PI * r.freq * t2));
+          dAlias += (i2 === 0 ? "M" : "L") + tToX(t2).toFixed(1) + "," + y2.toFixed(1) + " ";
+        }
+        el.wCurveAlias.setAttribute("d", dAlias.trim());
+        el.wCurveAlias.setAttribute("opacity", "0.95");
+        el.freqStat1D.innerHTML = "f = <b>" + f + " Hz</b>, f_s = <b>" + fs + " Hz</b>, Nyquist = <b>" + nyquist.toFixed(0) +
+          " Hz</b> → apparent (aliased) frequency = <b>" + r.freq.toFixed(0) + " Hz</b>";
+      } else {
+        el.wCurveAlias.setAttribute("opacity", "0");
+        el.freqStat1D.innerHTML = "f = <b>" + f + " Hz</b>, f_s = <b>" + fs + " Hz</b>, Nyquist = <b>" + nyquist.toFixed(0) + " Hz</b> → ไม่มี aliasing";
+      }
+
+      // frequency folding diagram
+      var fMax = 2000;
+      var padL = 12, padR = 12, plotW = 560 - padL - padR;
+      function freqToX(freq) { return padL + clamp(freq / fMax, 0, 1) * plotW; }
+      var nyX = freqToX(nyquist);
+      el.nyquistLine.setAttribute("x1", nyX); el.nyquistLine.setAttribute("x2", nyX);
+      el.nyquistLabel.setAttribute("x", nyX);
+      el.foldDotTrue.setAttribute("cx", freqToX(f)); el.foldDotTrue.setAttribute("cy", 60);
+      if (isAliased) {
+        var rr = aliasedFreqAndSign(f, fs);
+        el.foldDotAlias.setAttribute("cx", freqToX(rr.freq)); el.foldDotAlias.setAttribute("cy", 60);
+        el.foldDotAlias.setAttribute("opacity", "1");
+        el.foldArrow.setAttribute("x1", freqToX(f)); el.foldArrow.setAttribute("y1", 60);
+        el.foldArrow.setAttribute("x2", freqToX(rr.freq)); el.foldArrow.setAttribute("y2", 60);
+        el.foldArrow.setAttribute("opacity", "0.85");
+      } else {
+        el.foldDotAlias.setAttribute("opacity", "0");
+        el.foldArrow.setAttribute("opacity", "0");
+      }
+    }
+    el.freqSlider.addEventListener("input", render1D);
+    el.fsSlider.addEventListener("input", render1D);
+
+    // ================= 2D aliasing (Gaussian blur verified via the same gaussianSize/separable-
+    // convolution pattern used and geometry-tested in log-derivation-demo and harris-corner-demo) =================
+    var W2 = 200, H2 = 200;
+    function chirpTestImage() {
+      var g = new Float64Array(W2 * H2);
+      var halfW = W2 / 2, halfH = H2 / 2;
+      for (var y = 0; y < H2; y++) {
+        for (var x = 0; x < W2; x++) {
+          var v;
+          if (x < halfW && y < halfH) {
+            var lx = x, f0 = 0.01, k = (0.5 - 0.01) / halfW;
+            v = 128 + 110 * Math.cos(2 * Math.PI * (f0 * lx + 0.5 * k * lx * lx));
+          } else if (x >= halfW && y < halfH) {
+            var ly = y, f0b = 0.01, kb = (0.5 - 0.01) / halfH;
+            v = 128 + 110 * Math.cos(2 * Math.PI * (f0b * ly + 0.5 * kb * ly * ly));
+          } else if (x < halfW && y >= halfH) {
+            var cell = 3;
+            var cx = Math.floor(x / cell), cy = Math.floor((y - halfH) / cell);
+            v = ((cx + cy) % 2 === 0) ? 230 : 30;
+          } else {
+            var lx2 = x - halfW, ly2 = y - halfH, d = (lx2 + ly2) / Math.SQRT2;
+            var f0c = 0.01, kc = (0.5 - 0.01) / (halfW * Math.SQRT2 * 0.9);
+            v = 128 + 110 * Math.cos(2 * Math.PI * (f0c * d + 0.5 * kc * d * d));
+          }
+          g[y * W2 + x] = v;
+        }
+      }
+      return g;
+    }
+    var baseImage2D = chirpTestImage();
+
+    function gaussianKernel1D(size, sigma) {
+      var c = (size - 1) / 2, k = [], sum = 0;
+      for (var i = 0; i < size; i++) { var x = i - c; var v = Math.exp(-(x * x) / (2 * sigma * sigma)); k.push(v); sum += v; }
+      for (var i = 0; i < size; i++) k[i] /= sum;
+      return k;
+    }
+    function gaussianSize(sigma) { return 2 * Math.ceil(3 * sigma) + 1; }
+    function gaussianBlur2D(img, w, h, sigma) {
+      if (sigma <= 0) return img.slice();
+      var size = gaussianSize(sigma), kernel = gaussianKernel1D(size, sigma), half = Math.floor(size / 2);
+      var tmp = new Float64Array(w * h);
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          var sum = 0;
+          for (var i = 0; i < size; i++) sum += img[y * w + clampCoord(x + i - half, w)] * kernel[i];
+          tmp[y * w + x] = sum;
+        }
+      }
+      var out = new Float64Array(w * h);
+      for (var y2 = 0; y2 < h; y2++) {
+        for (var x2 = 0; x2 < w; x2++) {
+          var sum2 = 0;
+          for (var i2 = 0; i2 < size; i2++) sum2 += tmp[clampCoord(y2 + i2 - half, h) * w + x2] * kernel[i2];
+          out[y2 * w + x2] = sum2;
+        }
+      }
+      return out;
+    }
+    function downsampleUpsampleNearest(img, w, h, k) {
+      var out = new Float64Array(w * h);
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          var sx = Math.min(Math.floor(x / k) * k + Math.floor(k / 2), w - 1);
+          var sy = Math.min(Math.floor(y / k) * k + Math.floor(k / 2), h - 1);
+          out[y * w + x] = img[sy * w + sx];
+        }
+      }
+      return out;
+    }
+    function renderGrayCanvas(canvas, arr, w, h) {
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext("2d");
+      var img = ctx.createImageData(w, h);
+      for (var p = 0; p < w * h; p++) {
+        var v = clamp(Math.round(arr[p]), 0, 255);
+        var o = p * 4;
+        img.data[o] = v; img.data[o + 1] = v; img.data[o + 2] = v; img.data[o + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+
+    function render2D() {
+      var k = Number(el.downsampleSlider.value);
+      var sigma = Number(el.blurSlider.value);
+      el.downsampleVal.textContent = k + "×";
+      el.blurVal.textContent = sigma.toFixed(1);
+
+      renderGrayCanvas(el.imgOrig, baseImage2D, W2, H2);
+      var aliased = downsampleUpsampleNearest(baseImage2D, W2, H2, k);
+      renderGrayCanvas(el.imgAliased, aliased, W2, H2);
+      var blurred = gaussianBlur2D(baseImage2D, W2, H2, sigma);
+      var clean = downsampleUpsampleNearest(blurred, W2, H2, k);
+      renderGrayCanvas(el.imgClean, clean, W2, H2);
+    }
+    el.downsampleSlider.addEventListener("input", render2D);
+    el.blurSlider.addEventListener("input", render2D);
+
+    // ================= math toggle + init =================
+    el.mathToggle.addEventListener("click", function () {
+      var show = el.mathBody.hidden;
+      el.mathBody.hidden = !show;
+      el.mathToggle.setAttribute("aria-expanded", String(show));
+      el.mathToggle.textContent = show ? "ซ่อนสูตร" : "แสดงสูตรคำนวณ";
+    });
+
+    setMode("1d");
+    render1D();
+    render2D();
+  })();
+</script>

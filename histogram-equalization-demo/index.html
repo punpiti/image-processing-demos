@@ -1,0 +1,458 @@
+<title>Histogram Equalization — เต็มภาพ vs เลือกช่วง (Band)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- Open Graph / Social sharing -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Histogram Equalization — เต็มภาพ vs เลือกช่วง (Band)">
+<meta property="og:description" content="เทียบ full-image กับการเลือกช่วง (band) ทำ HE เฉพาะจุด คล้าย window/level ในภาพการแพทย์">
+<meta property="og:url" content="https://urban.cpe.ku.ac.th/image_processing/demos/histogram-equalization-demo/">
+<meta property="og:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/histogram-equalization-demo/og.png">
+<meta property="og:image:width" content="1731">
+<meta property="og:image:height" content="909">
+<meta property="og:site_name" content="Image Processing Demos">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Histogram Equalization — เต็มภาพ vs เลือกช่วง (Band)">
+<meta name="twitter:description" content="เทียบ full-image กับการเลือกช่วง (band) ทำ HE เฉพาะจุด คล้าย window/level ในภาพการแพทย์">
+<meta name="twitter:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/histogram-equalization-demo/og.png">
+<style>
+  :root {
+    --bg: #f3f4f4;
+    --surface: #ffffff;
+    --surface-2: #ebecec;
+    --border: #dadcdc;
+    --text-primary: #1e2222;
+    --text-secondary: #4f5555;
+    --text-muted: #838888;
+    --accent: #1f7a8c;
+    --accent-ink: #ffffff;
+    --dark-band: #3d5a80;
+    --bright-band: #c9963a;
+    --shadow: 0 1px 2px rgba(30,34,34,.06), 0 8px 24px rgba(30,34,34,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121616; --surface: #191e1e; --surface-2: #232929; --border: #363d3d;
+      --text-primary: #edf1f1; --text-secondary: #c0c8c8; --text-muted: #838888;
+      --accent: #4fb8cc; --accent-ink: #0b1717;
+      --dark-band: #7ea3d6; --bright-band: #e0ac52;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121616; --surface: #191e1e; --surface-2: #232929; --border: #363d3d;
+    --text-primary: #edf1f1; --text-secondary: #c0c8c8; --text-muted: #838888;
+    --accent: #4fb8cc; --accent-ink: #0b1717;
+    --dark-band: #7ea3d6; --bright-band: #e0ac52;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text-primary); font-family: -apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif; line-height: 1.55; }
+  .page { max-width: 1140px; margin: 0 auto; padding: 40px 20px 80px; display: flex; flex-direction: column; gap: 26px; }
+  .hero { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow { margin: 0; font: 600 12px/1 -apple-system,sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  h1 { margin: 0; font-family: Charter,"Iowan Old Style","Noto Serif Thai",Georgia,serif; font-weight: 600; font-size: clamp(26px,3.6vw,38px); text-wrap: balance; }
+  .lede { margin: 0; max-width: 70ch; color: var(--text-secondary); font-size: 16px; }
+  section.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+
+  .narrative { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .insight { display: flex; gap: 12px; align-items: flex-start; opacity: .28; filter: grayscale(.4); transition: opacity .35s ease, filter .35s ease; }
+  .insight.active { opacity: 1; filter: none; }
+  .insight .dot { flex: none; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--border); }
+  .insight.active .dot { background: var(--accent); }
+  .insight p { margin: 0; font-family: Charter,"Iowan Old Style","Noto Serif Thai",Georgia,serif; font-size: 16px; }
+  .insight b { font-weight: 700; }
+  .insight .k-accent { color: var(--accent); }
+  .insight .k-dark { color: var(--dark-band); }
+  .insight .k-bright { color: var(--bright-band); }
+
+  .section-title { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; }
+  .section-note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+
+  .step-panel { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .preset-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button.action { font: 600 13px -apple-system,sans-serif; color: var(--text-secondary); background: var(--surface-2); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  button.action.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+  button.action.band-dark { border-color: var(--dark-band); }
+  button.action.band-bright { border-color: var(--bright-band); }
+  input[type="file"] { font-size: 12.5px; color: var(--text-secondary); }
+
+  .hist-wrap { display: flex; flex-direction: column; gap: 8px; }
+  svg#histSvg { width: 100%; height: auto; display: block; }
+  .band-controls { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
+  .field label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+  .slider-field { display: flex; align-items: center; gap: 10px; }
+  input[type="range"] { accent-color: var(--accent); flex: 1; }
+  .slider-val { font: 700 13px/1 ui-monospace,"SF Mono",Consolas,monospace; min-width: 2.4em; text-align: right; }
+  .band-stat { font-size: 12.5px; color: var(--text-secondary); }
+  .band-stat b { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 780px) { .compare-grid { grid-template-columns: 1fr; } }
+  .compare-box { display: flex; flex-direction: column; gap: 6px; }
+  .compare-box h4 { margin: 0; font-size: 12.5px; font-weight: 700; color: var(--text-secondary); }
+  .canvas-frame { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+  canvas.img-canvas { display: block; width: 100%; height: auto; }
+  svg.mini-hist { width: 100%; height: auto; display: block; margin-top: 4px; }
+
+  .math-panel { padding: 18px 24px; }
+  .math-toggle { font: 600 13.5px -apple-system,sans-serif; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; }
+  .math-body { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .formula { font-family: ui-monospace,"SF Mono",Consolas,monospace; font-size: 12.5px; color: var(--text-primary); padding: 10px 12px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border); }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 480px) {
+    .page { padding: 22px 14px 48px; gap: 18px; }
+    .narrative, .step-panel, .math-panel { padding: 16px 16px; }
+  }
+  @media (min-width: 1050px) {
+    .page {
+      max-width: min(94vw, 1900px);
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      grid-template-areas: "hero hero" "narrative source" "narrative band" "narrative compare" "narrative math" "footer footer";
+      gap: 14px 28px;
+      padding: 20px 32px 26px;
+    }
+    .hero { grid-area: hero; }
+    .narrative { grid-area: narrative; position: sticky; top: 18px; align-self: start; max-height: calc(100vh - 36px); overflow-y: auto; }
+    .step-source { grid-area: source; padding: 16px 20px; }
+    .step-band { grid-area: band; padding: 16px 20px; }
+    .step-compare { grid-area: compare; padding: 16px 20px; }
+    .math-panel { grid-area: math; padding: 14px 20px; }
+    footer { grid-area: footer; }
+  }
+  @media (min-width: 1900px) { .page { grid-template-columns: 410px 1fr; } }
+</style>
+
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">01204483 Image Processing — Topic 03, Digital Images & 2D Preprocessing</p>
+    <h1>Histogram Equalization — เต็มภาพ vs เลือกช่วง (Band)</h1>
+    <p class="lede">
+      HE ปกติกระจาย histogram ทั้งภาพให้เต็ม 0–255 — แต่ถ้าภาพมีทั้งส่วนมืดมาก
+      และสว่างมากพร้อมกัน (เช่นภาพย้อนแสง) การทำ HE เต็มภาพอาจช่วยได้ไม่พอสำหรับ
+      รายละเอียดที่ซ่อนอยู่ในเงามืดหรือแสงจ้า — เลือก <b>ช่วง (band)</b> เฉพาะที่
+      สนใจแล้วทำ HE เฉพาะช่วงนั้น จะดึงรายละเอียดออกมาได้ชัดกว่ามาก
+    </p>
+  </header>
+
+  <section class="card narrative">
+    <div class="insight active" id="insA">
+      <span class="dot"></span>
+      <p>Histogram Equalization คำนวณจาก CDF ของ histogram แล้ว map ค่าเก่า → ค่าใหม่ตามสัดส่วนสะสม ยิ่งพิกเซลกระจุกตัวช่วงไหนมาก ช่วงนั้นจะถูก "ยืด" ให้กว้างขึ้น</p>
+    </div>
+    <div class="insight active" id="insB">
+      <span class="dot"></span>
+      <p>ปัญหาของ HE เต็มภาพ: ถ้ามีทั้งกลุ่มมืดจัดและสว่างจัดพร้อมกัน แต่ละกลุ่มต้อง "แบ่ง" ช่วง 0–255 กันใช้ ยืดได้ไม่เต็มที่เท่าที่ควร</p>
+    </div>
+    <div class="insight active" id="insC">
+      <span class="dot"></span>
+      <p><b class="k-accent">Band-Selective HE</b>: เลือกช่วงค่าที่สนใจ (เช่น <b class="k-dark">0–50 = เงามืด</b> หรือ <b class="k-bright">200–255 = แสงจ้า</b>) แล้วคำนวณ CDF จากพิกเซลในช่วงนั้นเท่านั้น ยืดให้เต็ม 0–255 ไปเลย — พิกเซลนอกช่วงถูกตัดเป็นดำ/ขาวสนิท</p>
+    </div>
+    <div class="insight active" id="insD">
+      <span class="dot"></span>
+      <p>แนวคิดนี้คล้าย "window/level" ในภาพถ่ายทางการแพทย์ (CT/X-ray) ที่หมอเลือกช่วง Hounsfield unit เฉพาะอวัยวะที่สนใจ แล้วดูรายละเอียดในช่วงนั้นแบบเต็มคอนทราสต์</p>
+    </div>
+    <div class="insight active" id="insE">
+      <span class="dot"></span>
+      <p>ลองพรีเซ็ต "ภาพย้อนแสง" แล้วกดปุ่ม "เลือกช่วงมืด" — จะเห็นรายละเอียดในเงาที่ HE เต็มภาพดึงออกมาได้ไม่หมด</p>
+    </div>
+  </section>
+
+  <section class="card step-panel step-source">
+    <p class="section-title">1 · เลือกรูปภาพ</p>
+    <div class="preset-row">
+      <button class="action" id="presetBacklit">ภาพย้อนแสง (มืด+สว่างพร้อมกัน)</button>
+      <button class="action" id="presetFoggy">ภาพหมอกจาง (คอนทราสต์ต่ำทั้งภาพ)</button>
+      <button class="action" id="presetTextured">ภาพลายทั่วไป</button>
+      <input type="file" id="fileInput" accept="image/*" />
+    </div>
+    <p class="section-note">แปลงเป็นภาพขาวดำก่อนประมวลผล (256×192 พิกเซล) — HE ทำงานบนความสว่างของภาพ</p>
+  </section>
+
+  <section class="card step-panel step-band">
+    <p class="section-title">2 · Histogram ต้นฉบับ + เลือกช่วง (Band)</p>
+    <div class="hist-wrap">
+      <svg id="histSvg" viewBox="0 0 512 200" preserveAspectRatio="xMidYMid meet">
+        <g id="histBars"></g>
+        <rect id="bandOverlay" y="0" height="180" fill="var(--accent)" opacity="0.18" />
+        <line x1="0" y1="180" x2="512" y2="180" stroke="var(--border)" stroke-width="1" />
+      </svg>
+    </div>
+    <div class="preset-row">
+      <button class="action band-dark" id="quickDark">เลือกช่วงมืด (0–60)</button>
+      <button class="action band-bright" id="quickBright">เลือกช่วงสว่าง (195–255)</button>
+      <button class="action" id="quickFull">เต็มช่วง (0–255 = HE ปกติ)</button>
+    </div>
+    <div class="band-controls">
+      <div class="field">
+        <label for="loSlider">ขอบล่างของช่วง (lo)</label>
+        <div class="slider-field">
+          <input type="range" id="loSlider" min="0" max="255" step="1" value="0" />
+          <span class="slider-val" id="loVal">0</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="hiSlider">ขอบบนของช่วง (hi)</label>
+        <div class="slider-field">
+          <input type="range" id="hiSlider" min="0" max="255" step="1" value="60" />
+          <span class="slider-val" id="hiVal">60</span>
+        </div>
+      </div>
+    </div>
+    <p class="band-stat">พิกเซลในช่วงที่เลือก: <b id="bandCount">—</b> จาก <b id="bandTotal">—</b> พิกเซล (<b id="bandPct">—</b>)</p>
+  </section>
+
+  <section class="card step-panel step-compare">
+    <p class="section-title">3 · เปรียบเทียบภาพ</p>
+    <div class="compare-grid">
+      <div class="compare-box">
+        <h4>ต้นฉบับ</h4>
+        <div class="canvas-frame"><canvas id="origCanvas" class="img-canvas"></canvas></div>
+      </div>
+      <div class="compare-box">
+        <h4>HE เต็มภาพ (ทั้ง 0–255)</h4>
+        <div class="canvas-frame"><canvas id="fullHeCanvas" class="img-canvas"></canvas></div>
+      </div>
+      <div class="compare-box">
+        <h4>Band-Selective HE (เฉพาะช่วงที่เลือก)</h4>
+        <div class="canvas-frame"><canvas id="bandHeCanvas" class="img-canvas"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card math-panel">
+    <button class="math-toggle" id="mathToggle" aria-expanded="false">แสดงสูตรคำนวณ</button>
+    <div class="math-body" id="mathBody" hidden>
+      <div class="formula">CDF(i) = Σ (k=0..i) hist(k) / N   —   HE เต็มภาพ: s(i) = round(255 × CDF(i))</div>
+      <div class="formula">Band-Selective HE ที่ช่วง [lo,hi]:
+  ถ้า i &lt; lo → s(i) = 0
+  ถ้า i &gt; hi → s(i) = 255
+  ถ้า lo ≤ i ≤ hi → s(i) = round(255 × Σ(k=lo..i) hist(k) / Σ(k=lo..hi) hist(k))</div>
+    </div>
+  </section>
+
+  <footer>
+    ตัวอย่างสมมติเพื่อการสอน — ประมวลผลบนภาพขาวดำ 256×192 พิกเซล; Band-Selective HE ในที่นี้คือการทำ Histogram Equalization ที่จำกัดเฉพาะช่วงความเข้มที่เลือก ไม่ใช่ CLAHE (ซึ่งจำกัดพื้นที่เชิงพิกัดแทนช่วงความเข้ม)
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var W = 256, H = 192;
+    var el = {};
+    ["presetBacklit", "presetFoggy", "presetTextured", "fileInput",
+     "histBars", "bandOverlay", "loSlider", "loVal", "hiSlider", "hiVal",
+     "quickDark", "quickBright", "quickFull", "bandCount", "bandTotal", "bandPct",
+     "origCanvas", "fullHeCanvas", "bandHeCanvas", "mathToggle", "mathBody"
+    ].forEach(function (id) { el[id] = document.getElementById(id); });
+
+    var origCtx = el.origCanvas.getContext("2d");
+    var fullCtx = el.fullHeCanvas.getContext("2d");
+    var bandCtx = el.bandHeCanvas.getContext("2d");
+    [el.origCanvas, el.fullHeCanvas, el.bandHeCanvas].forEach(function (c) { c.width = W; c.height = H; });
+
+    var grayData = null; // Uint8Array length W*H
+
+    function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+
+    // ---------- presets ----------
+    function drawBacklit(ctx) {
+      var horizon = H * 0.5;
+      for (var y = 0; y < horizon; y++) {
+        var v = Math.round(255 - (y / horizon) * 55); // 255 -> 200
+        ctx.fillStyle = "rgb(" + v + "," + v + "," + v + ")";
+        ctx.fillRect(0, y, W, 1);
+      }
+      for (var y2 = horizon; y2 < H; y2++) {
+        var v2 = Math.round(10 + ((y2 - horizon) / (H - horizon)) * 25); // 10 -> 35
+        ctx.fillStyle = "rgb(" + v2 + "," + v2 + "," + v2 + ")";
+        ctx.fillRect(0, y2, W, 1);
+      }
+      // faint cloud detail hidden in the bright band
+      for (var i = 0; i < 6; i++) {
+        var cx = 20 + Math.random() * (W - 40), cy = 15 + Math.random() * (horizon - 40);
+        var g = ctx.createRadialGradient(cx, cy, 2, cx, cy, 30 + Math.random() * 20);
+        g.addColorStop(0, "rgba(255,255,255,0.06)");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, 45, 0, Math.PI * 2); ctx.fill();
+      }
+      // faint silhouette shape detail hidden in the dark band
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, horizon, W, H - horizon); ctx.clip();
+      for (var j = 0; j < 5; j++) {
+        var mx = 10 + Math.random() * (W - 20), my = horizon + 10 + Math.random() * (H - horizon - 20);
+        var g2 = ctx.createRadialGradient(mx, my, 2, mx, my, 25);
+        g2.addColorStop(0, "rgba(255,255,255,0.05)"); g2.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(mx, my, 35, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+      addNoise(ctx, 4);
+    }
+    function drawFoggy(ctx) {
+      ctx.fillStyle = "rgb(128,128,128)"; ctx.fillRect(0, 0, W, H);
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(70, 110, 40, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(180, 60, 34, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#000"; ctx.fillRect(150, 120, 70, 50);
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(20, 160); ctx.lineTo(90, 40); ctx.lineTo(120, 160); ctx.fill();
+      ctx.restore();
+      addNoise(ctx, 6);
+    }
+    function drawTextured(ctx) {
+      ctx.fillStyle = "#606060"; ctx.fillRect(0, 0, W, H);
+      var shapes = [[40,40,'#202020'],[110,50,'#e8e8e8'],[190,45,'#808080'],[60,130,'#c0c0c0'],[150,140,'#303030'],[220,120,'#a0a0a0']];
+      shapes.forEach(function (s) { ctx.fillStyle = s[2]; ctx.beginPath(); ctx.arc(s[0], s[1], 30, 0, Math.PI * 2); ctx.fill(); });
+      addNoise(ctx, 8);
+    }
+    function addNoise(ctx, amp) {
+      var img = ctx.getImageData(0, 0, W, H);
+      for (var p = 0; p < img.data.length; p += 4) {
+        var n = (Math.random() - 0.5) * 2 * amp;
+        var v = clamp(img.data[p] + n, 0, 255);
+        img.data[p] = v; img.data[p + 1] = v; img.data[p + 2] = v;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    function setPresetActive(btn) {
+      [el.presetBacklit, el.presetFoggy, el.presetTextured].forEach(function (b) { b.classList.remove("active"); });
+      if (btn) btn.classList.add("active");
+    }
+    function loadFromDraw(drawFn) {
+      var tmp = document.createElement("canvas"); tmp.width = W; tmp.height = H;
+      var tctx = tmp.getContext("2d");
+      drawFn(tctx);
+      var data = tctx.getImageData(0, 0, W, H).data;
+      grayData = new Uint8Array(W * H);
+      for (var p = 0; p < W * H; p++) {
+        var o = p * 4;
+        grayData[p] = Math.round(0.299 * data[o] + 0.587 * data[o + 1] + 0.114 * data[o + 2]);
+      }
+      recompute();
+    }
+    el.presetBacklit.addEventListener("click", function () { setPresetActive(el.presetBacklit); loadFromDraw(drawBacklit); });
+    el.presetFoggy.addEventListener("click", function () { setPresetActive(el.presetFoggy); loadFromDraw(drawFoggy); });
+    el.presetTextured.addEventListener("click", function () { setPresetActive(el.presetTextured); loadFromDraw(drawTextured); });
+    el.fileInput.addEventListener("change", function (e) {
+      var file = e.target.files[0]; if (!file) return;
+      var img = new Image();
+      img.onload = function () {
+        setPresetActive(null);
+        loadFromDraw(function (ctx) {
+          var scale = Math.max(W / img.width, H / img.height);
+          var dw = img.width * scale, dh = img.height * scale;
+          ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+        });
+        URL.revokeObjectURL(img.src);
+      };
+      img.src = URL.createObjectURL(file);
+    });
+
+    // ---------- histogram + HE ----------
+    function buildHistogram() {
+      var hist = new Array(256).fill(0);
+      for (var p = 0; p < grayData.length; p++) hist[grayData[p]]++;
+      return hist;
+    }
+    function fullHEMap(hist, N) {
+      var map = new Array(256), cum = 0;
+      for (var i = 0; i < 256; i++) { cum += hist[i]; map[i] = Math.round(255 * (cum / N)); }
+      return map;
+    }
+    function bandHEMap(hist, lo, hi) {
+      var count = 0;
+      for (var i = lo; i <= hi; i++) count += hist[i];
+      var map = new Array(256), cum = 0;
+      for (var i = 0; i < 256; i++) {
+        if (i < lo) { map[i] = 0; continue; }
+        if (i > hi) { map[i] = 255; continue; }
+        cum += hist[i];
+        map[i] = count > 0 ? Math.round(255 * (cum / count)) : 0;
+      }
+      return { map: map, count: count };
+    }
+    function applyMap(map) {
+      var out = new Uint8Array(grayData.length);
+      for (var p = 0; p < grayData.length; p++) out[p] = map[grayData[p]];
+      return out;
+    }
+    function renderGray(ctx, arr) {
+      var img = ctx.createImageData(W, H);
+      for (var p = 0; p < arr.length; p++) {
+        var v = arr[p], o = p * 4;
+        img.data[o] = v; img.data[o + 1] = v; img.data[o + 2] = v; img.data[o + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+
+    var svgNS = "http://www.w3.org/2000/svg";
+    function renderHistogram(hist, N) {
+      el.histBars.innerHTML = "";
+      var bins = 64, binWidth = 256 / bins;
+      var maxCount = 0;
+      var binCounts = new Array(bins).fill(0);
+      for (var i = 0; i < 256; i++) binCounts[Math.floor(i / binWidth)] += hist[i];
+      binCounts.forEach(function (c) { if (c > maxCount) maxCount = c; });
+      var chartW = 512, chartH = 180, barW = chartW / bins;
+      var frag = document.createDocumentFragment();
+      binCounts.forEach(function (c, i) {
+        var h = maxCount > 0 ? (c / maxCount) * chartH : 0;
+        var rect = document.createElementNS(svgNS, "rect");
+        rect.setAttribute("x", (i * barW).toFixed(1));
+        rect.setAttribute("y", (chartH - h).toFixed(1));
+        rect.setAttribute("width", Math.max(barW - 1, 0.5).toFixed(1));
+        rect.setAttribute("height", h.toFixed(1));
+        rect.setAttribute("fill", "var(--text-muted)");
+        frag.appendChild(rect);
+      });
+      el.histBars.appendChild(frag);
+    }
+    function updateBandOverlay(lo, hi) {
+      var chartW = 512;
+      var x = (lo / 256) * chartW, w = ((hi - lo + 1) / 256) * chartW;
+      el.bandOverlay.setAttribute("x", x.toFixed(1));
+      el.bandOverlay.setAttribute("width", Math.max(w, 1).toFixed(1));
+    }
+
+    function recompute() {
+      if (!grayData) return;
+      var lo = Number(el.loSlider.value), hi = Number(el.hiSlider.value);
+      if (lo > hi) { hi = lo; el.hiSlider.value = hi; }
+      el.loVal.textContent = lo; el.hiVal.textContent = hi;
+
+      var hist = buildHistogram();
+      var N = grayData.length;
+      renderHistogram(hist, N);
+      updateBandOverlay(lo, hi);
+
+      renderGray(origCtx, grayData);
+      renderGray(fullCtx, applyMap(fullHEMap(hist, N)));
+      var band = bandHEMap(hist, lo, hi);
+      renderGray(bandCtx, applyMap(band.map));
+
+      el.bandCount.textContent = band.count.toLocaleString("en-US");
+      el.bandTotal.textContent = N.toLocaleString("en-US");
+      el.bandPct.textContent = (100 * band.count / N).toFixed(1) + "%";
+    }
+
+    el.loSlider.addEventListener("input", recompute);
+    el.hiSlider.addEventListener("input", recompute);
+    el.quickDark.addEventListener("click", function () { el.loSlider.value = 0; el.hiSlider.value = 60; recompute(); });
+    el.quickBright.addEventListener("click", function () { el.loSlider.value = 195; el.hiSlider.value = 255; recompute(); });
+    el.quickFull.addEventListener("click", function () { el.loSlider.value = 0; el.hiSlider.value = 255; recompute(); });
+    el.mathToggle.addEventListener("click", function () {
+      var show = el.mathBody.hidden;
+      el.mathBody.hidden = !show;
+      el.mathToggle.setAttribute("aria-expanded", String(show));
+      el.mathToggle.textContent = show ? "ซ่อนสูตร" : "แสดงสูตรคำนวณ";
+    });
+
+    setPresetActive(el.presetBacklit);
+    loadFromDraw(drawBacklit);
+  })();
+</script>

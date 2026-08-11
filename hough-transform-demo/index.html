@@ -1,0 +1,889 @@
+<title>Hough Transform — จุดในภาพ กลายเป็นเส้นโค้งใน Parameter Space ได้อย่างไร</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- Open Graph / Social sharing -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Hough Transform — จุดในภาพ กลายเป็นเส้นโค้งใน Parameter Space ได้อย่างไร">
+<meta property="og:description" content="เลือกเส้นตรงหรือวงกลม คลิกวางจุดเอง ดูเส้นโค้งที่แต่ละจุดโหวตใน accumulator แล้วดูรูปทรงที่ตรวจพบวาดกลับบนภาพ">
+<meta property="og:url" content="https://urban.cpe.ku.ac.th/image_processing/demos/hough-transform-demo/">
+<meta property="og:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/hough-transform-demo/og.png">
+<meta property="og:image:width" content="1734">
+<meta property="og:image:height" content="907">
+<meta property="og:site_name" content="Image Processing Demos">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Hough Transform — จุดในภาพ กลายเป็นเส้นโค้งใน Parameter Space ได้อย่างไร">
+<meta name="twitter:description" content="เลือกเส้นตรงหรือวงกลม คลิกวางจุดเอง ดูเส้นโค้งที่แต่ละจุดโหวตใน accumulator แล้วดูรูปทรงที่ตรวจพบวาดกลับบนภาพ">
+<meta name="twitter:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/hough-transform-demo/og.png">
+<style>
+  :root {
+    --bg: #f4f3f6;
+    --surface: #ffffff;
+    --surface-2: #ece9f0;
+    --border: #dad5e0;
+    --text-primary: #221f28;
+    --text-secondary: #52505a;
+    --text-muted: #85818e;
+    --accent: #6b3fa0;
+    --accent-ink: #ffffff;
+    --good: #1f8c6b;
+    --warn: #b0592c;
+    --shadow: 0 1px 2px rgba(34, 31, 40, 0.06), 0 8px 24px rgba(34, 31, 40, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17141d; --surface: #1e1a26; --surface-2: #282232; --border: #3c3548;
+      --text-primary: #efedf4; --text-secondary: #c6c1cf; --text-muted: #8f8a99;
+      --accent: #b491e0; --accent-ink: #17101f;
+      --good: #4fc79b; --warn: #e0924a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17141d; --surface: #1e1a26; --surface-2: #282232; --border: #3c3548;
+    --text-primary: #efedf4; --text-secondary: #c6c1cf; --text-muted: #8f8a99;
+    --accent: #b491e0; --accent-ink: #17101f;
+    --good: #4fc79b; --warn: #e0924a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text-primary);
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .page { max-width: 1180px; margin: 0 auto; padding: 40px 20px 80px; display: flex; flex-direction: column; gap: 26px; }
+  .hero { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow { margin: 0; font: 600 12px/1 -apple-system, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+  h1 { margin: 0; font-family: Charter, "Iowan Old Style", "Noto Serif Thai", Georgia, serif; font-weight: 600; font-size: clamp(26px, 3.6vw, 38px); text-wrap: balance; }
+  .lede { margin: 0; max-width: 74ch; color: var(--text-secondary); font-size: 16px; }
+  section.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+
+  .mode-row, .radio-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .radio-chip { display: flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface-2); cursor: pointer; font-size: 13.5px; font-weight: 700; color: var(--text-secondary); }
+  .radio-chip input { accent-color: var(--accent); }
+  .radio-chip.checked { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+
+  section[data-mode-panel] { display: none; }
+  section[data-mode-panel].active { display: flex; }
+
+  .narrative { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .insight { display: flex; gap: 12px; align-items: flex-start; opacity: 0.28; filter: grayscale(0.4); transition: opacity 0.35s ease, filter 0.35s ease; }
+  .insight.active { opacity: 1; filter: none; }
+  .insight .dot { flex: none; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--border); }
+  .insight.active .dot { background: var(--accent); }
+  .insight p { margin: 0; font-family: Charter, "Iowan Old Style", "Noto Serif Thai", Georgia, serif; font-size: 16px; color: var(--text-primary); }
+  .insight b { font-weight: 700; }
+  .insight .k-accent { color: var(--accent); }
+  .insight .k-good { color: var(--good); }
+  .insight .k-warn { color: var(--warn); }
+
+  .section-title { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 700; }
+  .section-note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+  .tiny-label { margin: 0 0 4px; font-size: 11.5px; font-weight: 700; color: var(--text-secondary); }
+
+  .step-panel { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+  .preset-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button.action { font: 600 13px -apple-system, sans-serif; color: var(--text-secondary); background: var(--surface-2); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  button.action:hover { filter: brightness(1.05); }
+  button.action.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 200px; flex: 1; }
+  .field label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+  .slider-field { display: flex; align-items: center; gap: 10px; }
+  input[type="range"] { accent-color: var(--accent); flex: 1; }
+  .slider-val { font: 700 13px/1 ui-monospace, "SF Mono", Consolas, monospace; min-width: 3em; text-align: right; }
+  .filter-controls { display: flex; flex-wrap: wrap; gap: 16px 26px; align-items: flex-end; }
+
+  .dual-layout { display: grid; grid-template-columns: minmax(220px, 320px) minmax(260px, 1fr); gap: 22px; align-items: start; }
+  @media (max-width: 780px) { .dual-layout { grid-template-columns: 1fr; } }
+  .domain-pair-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 780px) { .domain-pair-grid { grid-template-columns: 1fr; } }
+  .domain-col { display: flex; flex-direction: column; gap: 10px; }
+
+  .canvas-frame { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+  canvas.pt-canvas { display: block; width: 100%; height: auto; cursor: crosshair; image-rendering: pixelated; }
+  svg.overlay-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  .acc-frame { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+  canvas.acc-canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+
+  .stat-row { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; color: var(--text-secondary); }
+  .stat-row b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+  .radii-chart-wrap { display: flex; flex-direction: column; gap: 6px; }
+  svg.radii-chart { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+
+  .math-panel { padding: 18px 24px; }
+  .math-toggle { font: 600 13.5px -apple-system, sans-serif; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; }
+  .math-body { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .formula { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12.5px; color: var(--text-primary); padding: 10px 12px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border); white-space: pre-wrap; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 480px) {
+    .page { padding: 22px 14px 48px; gap: 18px; }
+    .narrative, .step-panel, .math-panel { padding: 16px 16px; }
+  }
+  @media (min-width: 1050px) {
+    .page {
+      max-width: min(94vw, 1900px);
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      grid-template-areas: "hero hero" "narrative mode" "narrative points" "narrative acc" "narrative math" "footer footer";
+      gap: 14px 28px;
+      padding: 20px 32px 26px;
+    }
+    .hero { grid-area: hero; }
+    .narrative { grid-area: narrative; position: sticky; top: 18px; align-self: start; max-height: calc(100vh - 36px); overflow-y: auto; }
+    .card.mode-card { grid-area: mode; padding: 14px 20px; }
+    .step-points { grid-area: points; padding: 16px 20px; }
+    .step-acc { grid-area: acc; padding: 16px 20px; }
+    .math-panel { grid-area: math; padding: 14px 20px; }
+    footer { grid-area: footer; }
+  }
+  @media (min-width: 1900px) { .page { grid-template-columns: 420px 1fr; } }
+</style>
+
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">01204483 Image Processing — Topic 07, Hough Transforms</p>
+    <h1>Hough Transform — จุดในภาพ กลายเป็นเส้นโค้งใน Parameter Space ได้อย่างไร</h1>
+    <p class="lede">
+      แต่ละจุดในภาพไม่ได้ "โหวต" ให้รูปทรงเดียว — มันโหวตให้ <b>ทุกรูปทรงที่เป็นไปได้ที่ผ่านจุดนั้น</b>
+      พร้อมกัน ในรูปของเส้นโค้งหนึ่งเส้นใน parameter space ถ้าหลายจุดอยู่บนเส้นตรง/วงกลมเดียวกันจริง ๆ
+      เส้นโค้งของพวกมันจะไปตัดกันที่จุดเดียว — จุดตัดที่มีโหวตเยอะที่สุดก็คือรูปทรงที่ตรวจพบ
+    </p>
+  </header>
+
+  <section class="card mode-card">
+    <p class="section-title" style="margin-bottom:8px">เลือกรูปทรงที่จะตรวจจับ</p>
+    <div class="mode-row" id="modeRow">
+      <label class="radio-chip checked"><input type="radio" name="shape" value="line" checked /> เส้นตรง (Line)</label>
+      <label class="radio-chip"><input type="radio" name="shape" value="circle" /> วงกลม (Circle)</label>
+    </div>
+  </section>
+
+  <!-- Line narrative and circle narrative are fully independent — the two models
+       share nothing except this page and the mode switch above. -->
+  <section class="card narrative" data-mode-panel="line">
+    <div class="insight active" id="lnInsA">
+      <span class="dot"></span>
+      <p>จุดหนึ่งจุดในภาพผ่านเส้นตรงได้ <b class="k-accent">หลายแบบไม่จำกัด</b> (สโลปไหนก็ได้) — Hough transform แปลง "จุดนั้นอาจอยู่บนเส้นตรงไหนได้บ้าง" ให้กลายเป็นเส้นโค้ง/เส้นตรงหนึ่งเส้นใน parameter space</p>
+    </div>
+    <div class="insight active" id="lnInsB">
+      <span class="dot"></span>
+      <p>โดเมนที่คุ้นเคย: y = mx + c — จุด (x,y) หนึ่งจุด กลายเป็น<b class="k-accent">เส้นตรง</b> c = y − m·x ในปริภูมิ (m, c) แทน (สลับบทบาท x,y กับ m,c)</p>
+    </div>
+    <div class="insight active" id="lnInsC">
+      <span class="dot"></span>
+      <p>ปัญหาของ (m,c): เส้นตั้งฉาก (vertical) มี slope m = ∞ ซึ่ง<b class="k-warn">ไม่มีที่ยืน</b>ในกราฟที่มีขอบเขตจำกัด — ลองพรีเซ็ต "เส้นเกือบตั้งฉาก" ดูที่ข้อ 2</p>
+    </div>
+    <div class="insight active" id="lnInsD">
+      <span class="dot"></span>
+      <p>ทางแก้: parametrize ด้วย ρ = x·cosθ + y·sinθ แทน — จุด (x,y) กลายเป็นเส้นโค้ง <b class="k-accent">sine curve</b> ในปริภูมิ (θ, ρ) ซึ่ง θ ครอบคลุมทุกทิศทางได้โดยไม่มีค่า infinite เลย</p>
+    </div>
+    <div class="insight active" id="lnInsE">
+      <span class="dot"></span>
+      <p>จุดที่<b>collinear กันจริง</b> ไม่ว่าจะมองในโดเมนไหน เส้นโค้ง/เส้นตรงของทุกจุดจะไปตัดกันที่ตำแหน่งพารามิเตอร์เดียวกันเสมอ — จุดตัดสะสมโหวตสูง กลายเป็น <b class="k-good">peak</b> ที่บอกว่าเส้นไหนคือคำตอบ</p>
+    </div>
+    <div class="insight active" id="lnInsF">
+      <span class="dot"></span>
+      <p>จุด noise ที่ไม่ได้อยู่บนเส้นไหนเลย ก็ยังโหวตเหมือนกัน แต่เส้นโค้ง/เส้นตรงของมัน<b class="k-warn">กระจายไม่ตรงกับใคร</b> จึงไม่สะสมเป็น peak — ลองเอาเมาส์ชี้จุดในข้อ 1 ดูเส้นของมันเด่นขึ้นมาในทั้งสองโดเมน</p>
+    </div>
+  </section>
+
+  <section class="card narrative" data-mode-panel="circle">
+    <div class="insight active" id="crInsA">
+      <span class="dot"></span>
+      <p>จุดหนึ่งจุดในภาพผ่านวงกลมได้ <b class="k-accent">หลายแบบไม่จำกัด</b> (ศูนย์กลาง/รัศมีต่างกัน) — โมเดลสมการวงกลม (x−a)² + (y−b)² = r² มี 3 พารามิเตอร์ (a, b, r)</p>
+    </div>
+    <div class="insight active" id="crInsB">
+      <span class="dot"></span>
+      <p>เดโมนี้กำหนด r คงที่ค่าหนึ่งก่อน (เลื่อนดูได้) — จุด (x,y) โหวตเป็น <b class="k-accent">วงกลมรัศมี r เดียวกัน</b> รอบจุดนั้นเองในปริภูมิ (a, b) ของศูนย์กลางที่เป็นไปได้ — ความสมมาตรที่สวยงามของปัญหานี้</p>
+    </div>
+    <div class="insight active" id="crInsC">
+      <span class="dot"></span>
+      <p>จุดที่อยู่บน<b>วงกลมขนาดเดียวกันจริง</b> วงกลมโหวตของทุกจุดจะไปตัดกันที่ตำแหน่ง (a,b) เดียวกันเสมอ เมื่อ r ที่เลือกตรงกับรัศมีจริง</p>
+    </div>
+    <div class="insight active" id="crInsD">
+      <span class="dot"></span>
+      <p>ลองเลื่อน r ไปเรื่อย ๆ — โหวตสูงสุดจะ<b class="k-good">แหลมที่สุดพอดีที่รัศมีจริง</b> ของวงกลมในภาพ แล้วอ่อนลงทันทีถ้า r ผิดไปแม้เพียงเล็กน้อย</p>
+    </div>
+    <div class="insight active" id="crInsE">
+      <span class="dot"></span>
+      <p>จุด noise ก็ยังโหวตเหมือนกัน แต่วงกลมของมัน<b class="k-warn">กระจายไม่ตรงกับใคร</b> จึงไม่สะสมเป็น peak — แม้มีแค่บางส่วนของวงกลม (ส่วนโค้ง) ก็ยังหาศูนย์กลางเจอได้</p>
+    </div>
+    <div class="insight active" id="crInsF">
+      <span class="dot"></span>
+      <p>ลองเอาเมาส์ชี้จุดในข้อ 1 ดูวงกลมโหวตของมันเด่นขึ้นมาในข้อ 2 แล้วดูกราฟโหวตสูงสุดเทียบกับ r ว่ายอดแหลมอยู่ตรงไหน</p>
+    </div>
+  </section>
+
+  <!-- ============================= LINE MODE ============================= -->
+  <section class="card step-panel step-points" data-mode-panel="line">
+    <p class="section-title">1 · จุดทดสอบ (คลิกที่ภาพเพื่อเพิ่ม/ลบจุดเองได้)</p>
+    <div class="preset-row">
+      <button class="action" id="lnPresetLine">เส้นเดียว + noise</button>
+      <button class="action" id="lnPresetTriangle">สามเหลี่ยม (3 เส้น)</button>
+      <button class="action" id="lnPresetStar">หลายเส้นตัดกัน</button>
+      <button class="action" id="lnPresetVertical">เส้นเกือบตั้งฉาก</button>
+      <button class="action" id="lnPresetClear">ล้างจุดทั้งหมด</button>
+    </div>
+    <div class="canvas-frame" style="max-width:260px">
+      <canvas id="lnCanvas" class="pt-canvas"></canvas>
+      <svg id="lnOverlay" class="overlay-svg" viewBox="0 0 200 160" preserveAspectRatio="none"></svg>
+    </div>
+    <p class="section-note">จุดทั้งหมด: <b id="lnPointCount">0</b> จุด — เอาเมาส์ชี้ใกล้จุดใดจุดหนึ่งเพื่อดูเส้นโค้ง/เส้นตรงของมันในข้อ 2</p>
+  </section>
+
+  <section class="card step-panel step-acc" data-mode-panel="line">
+    <p class="section-title">2 · สองโดเมนพารามิเตอร์ที่บอกเรื่องเดียวกัน — (m,c) และ (ρ,θ)</p>
+    <p class="section-note">จุดแต่ละจุดในข้อ 1 แปลงเป็นเส้นตรง/เส้นโค้งหนึ่งเส้นในแต่ละโดเมนด้านล่างพร้อมกัน — เอาเมาส์ชี้ใกล้จุดใดในข้อ 1 เพื่อดูเส้นของมันเด่นขึ้นมาทั้งสองฝั่ง</p>
+    <div class="domain-pair-grid">
+      <div class="domain-col">
+        <p class="tiny-label">(m, c) — slope-intercept (y = mx + c)</p>
+        <p class="section-note">
+          จุด (x,y) กลายเป็น <b>เส้นตรง</b> c = y − m·x — แต่มีปัญหา: เส้นตั้งฉาก (vertical) มี slope m = ∞
+          ซึ่งไม่มีที่ยืนในกราฟที่มีขอบเขตจำกัดแบบนี้เลย (ลองพรีเซ็ต "เส้นเกือบตั้งฉาก" ในข้อ 1 ดู — peak จะจางหรือหลุดขอบจอ)
+        </p>
+        <div class="acc-frame" style="max-width:240px">
+          <canvas id="mcAccCanvas" class="acc-canvas"></canvas>
+          <svg id="mcAccOverlay" class="overlay-svg" viewBox="0 0 200 160" preserveAspectRatio="none"></svg>
+        </div>
+        <p class="section-note">แกน x = m (จำกัดช่วง −8 ถึง 8), แกน y = c (ปรับสเกลอัตโนมัติตามจุดปัจจุบัน)</p>
+        <p class="stat-row" id="mcDetected">—</p>
+      </div>
+      <div class="domain-col">
+        <p class="tiny-label">(ρ, θ) — normal form (ไม่มีปัญหาเส้นตั้งฉาก)</p>
+        <p class="section-note">จุด (x,y) กลายเป็นเส้นโค้ง sine — θ ครอบคลุมทุกทิศทางรวมถึงแนวตั้ง (θ=0) โดยไม่มีค่า infinite เลย จึงไม่มีปัญหาแบบโดเมน (m,c) ทางซ้าย</p>
+        <div class="acc-frame" style="max-width:240px">
+          <canvas id="lnAccCanvas" class="acc-canvas"></canvas>
+          <svg id="lnAccOverlay" class="overlay-svg" viewBox="0 0 180 160" preserveAspectRatio="none"></svg>
+        </div>
+        <div class="field">
+          <label for="lnThreshSlider">Threshold (% ของโหวตสูงสุด)</label>
+          <div class="slider-field">
+            <input type="range" id="lnThreshSlider" min="30" max="95" step="1" value="65" />
+            <span class="slider-val" id="lnThreshVal">65%</span>
+          </div>
+        </div>
+        <p class="stat-row">เส้นตรงที่ตรวจพบ: <b id="lnLineCount">—</b> เส้น (โหวตสูงสุด <b id="lnMaxVotes">—</b> จาก <b id="lnTotalPoints">—</b> จุด)</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= CIRCLE MODE ============================= -->
+  <section class="card step-panel step-points" data-mode-panel="circle">
+    <p class="section-title">1 · จุดทดสอบ (คลิกที่ภาพเพื่อเพิ่ม/ลบจุดเองได้)</p>
+    <div class="preset-row">
+      <button class="action" id="crPresetCircle">วงกลมเดียว + noise</button>
+      <button class="action" id="crPresetTwo">สองวงกลม</button>
+      <button class="action" id="crPresetArc">ส่วนโค้ง + noise</button>
+      <button class="action" id="crPresetClear">ล้างจุดทั้งหมด</button>
+    </div>
+    <div class="canvas-frame" style="max-width:260px">
+      <canvas id="crCanvas" class="pt-canvas"></canvas>
+      <svg id="crOverlay" class="overlay-svg" viewBox="0 0 200 160" preserveAspectRatio="none"></svg>
+    </div>
+    <p class="section-note">จุดทั้งหมด: <b id="crPointCount">0</b> จุด — เอาเมาส์ชี้ใกล้จุดใดจุดหนึ่งเพื่อดู "วงกลมโหวต" ของมันในข้อ 2 (รัศมีเท่ากับ r ที่เลือกไว้)</p>
+  </section>
+
+  <section class="card step-panel step-acc" data-mode-panel="circle">
+    <p class="section-title">2 · Accumulator (a, b) ที่รัศมี r + วงกลมที่ตรวจพบ</p>
+    <p class="section-note">แต่ละจุดในข้อ 1 โหวตเป็นวงกลมรัศมี r รอบตัวมันเองในปริภูมินี้ — ลองเลื่อน r แล้วดูว่า peak คมที่สุดตอนไหน</p>
+    <div class="field">
+      <label for="crRadiusSlider">รัศมี r ที่ทดสอบ</label>
+      <div class="slider-field">
+        <input type="range" id="crRadiusSlider" min="10" max="70" step="1" value="35" />
+        <span class="slider-val" id="crRadiusVal">35</span>
+      </div>
+    </div>
+    <div class="dual-layout">
+      <div class="acc-frame" style="max-width:240px">
+        <canvas id="crAccCanvas" class="acc-canvas"></canvas>
+        <svg id="crAccOverlay" class="overlay-svg" viewBox="0 0 200 160" preserveAspectRatio="none"></svg>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <p class="stat-row">โหวตสูงสุดที่ r นี้: <b id="crPeakVotes">—</b> จาก <b id="crTotalPoints">—</b> จุด</p>
+        <div class="radii-chart-wrap">
+          <p class="tiny-label">โหวตสูงสุด (แกน y) เทียบกับรัศมีที่กวาดดู (แกน x) — ยอดแหลม = รัศมีจริงของวงกลมในภาพ</p>
+          <svg class="radii-chart" id="crRadiiChart" viewBox="0 0 300 90"></svg>
+        </div>
+        <div class="field">
+          <label for="crThreshSlider">Threshold ตรวจจับวงกลม (% ของโหวตสูงสุดทั้งหมด)</label>
+          <div class="slider-field">
+            <input type="range" id="crThreshSlider" min="20" max="90" step="1" value="55" />
+            <span class="slider-val" id="crThreshVal">55%</span>
+          </div>
+        </div>
+        <p class="stat-row">วงกลมที่ตรวจพบ (กวาดทุกรัศมี): <b id="crCircleCount">—</b> วง</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card math-panel">
+    <button class="math-toggle" id="mathToggle" aria-expanded="false">แสดงสูตรคำนวณ</button>
+    <div class="math-body" id="mathBody" hidden>
+      <div class="formula">เส้นตรง (normal form): ρ = x·cosθ + y·sinθ , θ ∈ [0, π), ρ ∈ [−ρmax, ρmax]
+  จุด (x,y) หนึ่งจุด → เส้นโค้ง sine หนึ่งเส้นในปริภูมิ (θ, ρ)
+  หลายจุดบนเส้นตรงเดียวกัน → เส้นโค้งทุกเส้นตัดกันที่ (θ,ρ) เดียวกันพอดี</div>
+      <div class="formula">วงกลม (รัศมี r คงที่): (x−a)² + (y−b)² = r²
+  a = x − r·cosθ , b = y − r·sinθ , θ ∈ [0, 2π)
+  จุด (x,y) หนึ่งจุด → วงกลมรัศมี r รอบจุดนั้นเองในปริภูมิ (a, b)
+  ถ้ากวาด r หลายค่า จะได้ accumulator 3 มิติ (a,b,r) — ในเดโมนี้กวาดทีละ r แล้วดู peak สูงสุดต่อค่า r</div>
+      <div class="formula">Peak detection: หา local maxima ใน accumulator ที่โหวต ≥ threshold (คิดสัดส่วนจากโหวตสูงสุด)
+  แล้วทำ non-max suppression (เทียบกับเพื่อนบ้านในละแวกใกล้เคียง) เพื่อไม่ให้ peak เดียวกันถูกนับซ้ำ</div>
+    </div>
+  </section>
+
+  <footer>
+    ตัวอย่างสมมติเพื่อการสอน — ภาพจุดทดสอบ 200×160 พิกเซล, เส้นตรงใช้ θ ความละเอียด 1°,
+    วงกลมกวาดรัศมีทีละ 1 พิกเซล — คำนวณ accumulator ตรง ๆ ไม่ใช้ integral image/FFT
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var W = 200, H = 160;
+    var svgNS = "http://www.w3.org/2000/svg";
+    function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+    function clampCoord(v, max) { return Math.min(Math.max(v, 0), max - 1); }
+
+    // ================= mode switch =================
+    function setMode(mode) {
+      document.querySelectorAll("[data-mode-panel]").forEach(function (p) {
+        p.classList.toggle("active", p.getAttribute("data-mode-panel") === mode);
+      });
+      document.querySelectorAll("#modeRow .radio-chip").forEach(function (c) {
+        c.classList.toggle("checked", c.querySelector("input").checked);
+      });
+    }
+    document.querySelectorAll('input[name="shape"]').forEach(function (r) {
+      r.addEventListener("change", function () { setMode(r.value); });
+    });
+
+    // ================= DOM refs =================
+    var el = {};
+    ["lnPresetLine", "lnPresetTriangle", "lnPresetStar", "lnPresetVertical", "lnPresetClear",
+     "lnCanvas", "lnOverlay", "lnPointCount",
+     "mcAccCanvas", "mcAccOverlay", "mcDetected",
+     "lnAccCanvas", "lnAccOverlay", "lnThreshSlider", "lnThreshVal",
+     "lnLineCount", "lnMaxVotes", "lnTotalPoints",
+     "crPresetCircle", "crPresetTwo", "crPresetArc", "crPresetClear",
+     "crCanvas", "crOverlay", "crPointCount",
+     "crRadiusSlider", "crRadiusVal", "crAccCanvas", "crAccOverlay",
+     "crPeakVotes", "crTotalPoints", "crRadiiChart",
+     "crThreshSlider", "crThreshVal", "crCircleCount",
+     "mathToggle", "mathBody"
+    ].forEach(function (id) { el[id] = document.getElementById(id); });
+
+    // ================= LINE HOUGH math (verified in Node before writing this file:
+    // collinear points recover the true (theta,rho) to within ~1 bin of discretization
+    // error; matrix/vote logic checked against a hand-computed example) =================
+    var THETA_STEPS = 180; // 1-degree bins, theta in [0, PI)
+    var RHO_MAX = Math.ceil(Math.sqrt(W * W + H * H));
+    var RHO_STEP = 2;
+    var RHO_BINS = Math.floor((2 * RHO_MAX) / RHO_STEP) + 1;
+    var COS_TABLE = [], SIN_TABLE = [];
+    for (var t = 0; t < THETA_STEPS; t++) {
+      var th = t * Math.PI / THETA_STEPS;
+      COS_TABLE.push(Math.cos(th)); SIN_TABLE.push(Math.sin(th));
+    }
+    function lineAccumulate(pts) {
+      var acc = new Uint16Array(THETA_STEPS * RHO_BINS);
+      for (var i = 0; i < pts.length; i++) {
+        var x = pts[i].x, y = pts[i].y;
+        for (var t = 0; t < THETA_STEPS; t++) {
+          var rho = x * COS_TABLE[t] + y * SIN_TABLE[t];
+          var rBin = Math.round((rho + RHO_MAX) / RHO_STEP);
+          if (rBin >= 0 && rBin < RHO_BINS) acc[rBin * THETA_STEPS + t]++;
+        }
+      }
+      return acc;
+    }
+    function detectLinePeaks(acc, threshVotes, nmsT, nmsR) {
+      var peaks = [];
+      for (var t = 0; t < THETA_STEPS; t++) {
+        for (var r = 0; r < RHO_BINS; r++) {
+          var v = acc[r * THETA_STEPS + t];
+          if (v < threshVotes || v < 2) continue;
+          var isMax = true;
+          for (var dt = -nmsT; dt <= nmsT && isMax; dt++) {
+            for (var dr = -nmsR; dr <= nmsR; dr++) {
+              if (dt === 0 && dr === 0) continue;
+              var tt = t + dt; if (tt < 0) tt += THETA_STEPS; if (tt >= THETA_STEPS) tt -= THETA_STEPS;
+              var rr = r + dr; if (rr < 0 || rr >= RHO_BINS) continue;
+              if (acc[rr * THETA_STEPS + tt] > v) { isMax = false; break; }
+            }
+          }
+          if (isMax) peaks.push({ theta: t * Math.PI / THETA_STEPS, rho: r * RHO_STEP - RHO_MAX, votes: v });
+        }
+      }
+      peaks.sort(function (a, b) { return b.votes - a.votes; });
+      return peaks;
+    }
+    function lineSegmentForParams(theta, rho) {
+      var a = Math.cos(theta), b = Math.sin(theta);
+      var x0 = a * rho, y0 = b * rho;
+      var len = (W + H) * 1.5;
+      return [[x0 + len * b, y0 - len * a], [x0 - len * b, y0 + len * a]];
+    }
+
+    // ================= (m, c) slope-intercept dual space (verified in Node before writing
+    // this file: a point (x,y) on the true line y=m0*x+c0 has dual line c=y-m*x that, evaluated
+    // at m=m0, gives exactly c0 for every point — discretized accumulator recovers (m0,c0)
+    // exactly for a synthetic collinear set). Point (x,y) -> straight LINE c = y - m*x here,
+    // not a curve -- this is the classic duality, and the reason this domain is usually taught
+    // first even though it breaks down for vertical lines (m -> infinity has no finite bin). =================
+    var MC_M_MIN = -8, MC_M_MAX = 8, MC_M_STEPS = 160; // 161 samples across a bounded m range
+    var MC_C_BINS = 160;
+    function mcRange(pts) {
+      var lo = Infinity, hi = -Infinity;
+      pts.forEach(function (p) {
+        var c1 = p.y - MC_M_MIN * p.x, c2 = p.y - MC_M_MAX * p.x;
+        if (c1 < lo) lo = c1; if (c1 > hi) hi = c1;
+        if (c2 < lo) lo = c2; if (c2 > hi) hi = c2;
+      });
+      if (!isFinite(lo)) { lo = -200; hi = 200; }
+      var pad = (hi - lo) * 0.06 || 50;
+      return { lo: lo - pad, hi: hi + pad };
+    }
+    function mcAccumulate(pts, cLo, cHi) {
+      var acc = new Uint16Array((MC_M_STEPS + 1) * MC_C_BINS);
+      var cStep = (cHi - cLo) / MC_C_BINS;
+      for (var i = 0; i < pts.length; i++) {
+        var x = pts[i].x, y = pts[i].y;
+        for (var mi = 0; mi <= MC_M_STEPS; mi++) {
+          var m = MC_M_MIN + (mi / MC_M_STEPS) * (MC_M_MAX - MC_M_MIN);
+          var c = y - m * x;
+          var ci = Math.floor((c - cLo) / cStep);
+          if (ci >= 0 && ci < MC_C_BINS) acc[ci * (MC_M_STEPS + 1) + mi]++;
+        }
+      }
+      return acc;
+    }
+    function findPeakMc(acc) {
+      var best = -1, bmi = 0, bci = 0;
+      for (var i = 0; i < acc.length; i++) { if (acc[i] > best) { best = acc[i]; bmi = i % (MC_M_STEPS + 1); bci = (i / (MC_M_STEPS + 1)) | 0; } }
+      return { mi: bmi, ci: bci, votes: best };
+    }
+
+    // ================= CIRCLE HOUGH math (verified in Node: synthetic circle points give a
+    // sharp votes peak exactly at the true radius, with the peak center matching the true
+    // center; wrong radii give weak/scattered votes) =================
+    var THETA_STEPS_C = 90;
+    var COS_TABLE_C = [], SIN_TABLE_C = [];
+    for (var tc = 0; tc < THETA_STEPS_C; tc++) {
+      var thc = tc * 2 * Math.PI / THETA_STEPS_C;
+      COS_TABLE_C.push(Math.cos(thc)); SIN_TABLE_C.push(Math.sin(thc));
+    }
+    function circleAccumulate(pts, r) {
+      var acc = new Uint16Array(W * H);
+      for (var i = 0; i < pts.length; i++) {
+        var x = pts[i].x, y = pts[i].y;
+        for (var t = 0; t < THETA_STEPS_C; t++) {
+          var a = Math.round(x - r * COS_TABLE_C[t]);
+          var b = Math.round(y - r * SIN_TABLE_C[t]);
+          if (a >= 0 && a < W && b >= 0 && b < H) acc[b * W + a]++;
+        }
+      }
+      return acc;
+    }
+    function findPeak2D(acc, w, h) {
+      var best = -1, bx = 0, by = 0;
+      for (var i = 0; i < w * h; i++) { if (acc[i] > best) { best = acc[i]; bx = i % w; by = (i / w) | 0; } }
+      return { x: bx, y: by, votes: best };
+    }
+    var R_MIN = 10, R_MAX = 70;
+    function sweepRadii(pts) {
+      var results = [];
+      for (var r = R_MIN; r <= R_MAX; r++) {
+        var acc = circleAccumulate(pts, r);
+        var peak = findPeak2D(acc, W, H);
+        results.push({ r: r, x: peak.x, y: peak.y, votes: peak.votes });
+      }
+      return results;
+    }
+    function detectCirclesFromSweep(results, threshVotes, nmsR) {
+      var circles = [];
+      for (var i = 0; i < results.length; i++) {
+        if (results[i].votes < threshVotes || results[i].votes < 2) continue;
+        var isMax = true;
+        for (var j = Math.max(0, i - nmsR); j <= Math.min(results.length - 1, i + nmsR); j++) {
+          if (j === i) continue;
+          if (results[j].votes > results[i].votes) { isMax = false; break; }
+        }
+        if (isMax) circles.push(results[i]);
+      }
+      circles.sort(function (a, b) { return b.votes - a.votes; });
+      return circles;
+    }
+
+    // ================= point-set canvas rendering + click-to-edit =================
+    function renderPoints(canvas, pts) {
+      canvas.width = W; canvas.height = H;
+      var ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#f4f4f4"; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#2a2a2a";
+      pts.forEach(function (p) {
+        ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+    function nearestPointIndex(pts, x, y, maxDist) {
+      var best = -1, bestD = maxDist;
+      pts.forEach(function (p, i) {
+        var d = Math.hypot(p.x - x, p.y - y);
+        if (d < bestD) { bestD = d; best = i; }
+      });
+      return best;
+    }
+    function attachClickEditor(canvas, getPts, setPts, onChange) {
+      canvas.addEventListener("click", function (evt) {
+        var rect = canvas.getBoundingClientRect();
+        var x = clampCoord(Math.round((evt.clientX - rect.left) / rect.width * W), W);
+        var y = clampCoord(Math.round((evt.clientY - rect.top) / rect.height * H), H);
+        var pts = getPts();
+        var idx = nearestPointIndex(pts, x, y, 6);
+        if (idx >= 0) pts.splice(idx, 1); else pts.push({ x: x, y: y });
+        setPts(pts);
+        onChange();
+      });
+    }
+
+    // ================= heatmap rendering (shared) =================
+    function renderHeatmap(canvas, acc, w, h) {
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext("2d");
+      var img = ctx.createImageData(w, h);
+      var maxV = 0;
+      for (var i = 0; i < w * h; i++) if (acc[i] > maxV) maxV = acc[i];
+      maxV = maxV || 1;
+      for (var i2 = 0; i2 < w * h; i2++) {
+        var t = Math.pow(acc[i2] / maxV, 0.55); // gamma so faint votes stay visible
+        var v = Math.round(240 * (1 - t));
+        var o = i2 * 4;
+        img.data[o] = v; img.data[o + 1] = v; img.data[o + 2] = Math.round(v + (255 - v) * t * 0.15 + 40 * t); img.data[o + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+      return maxV;
+    }
+
+    // ================= LINE mode state + render =================
+    var lnPoints = [];
+    var lastLnHover = -1;
+    function lnPresetSet(pts) { lnPoints = pts; renderLine(); }
+    el.lnPresetLine.addEventListener("click", function () {
+      var pts = [];
+      for (var t = 0; t <= 1.001; t += 0.045) pts.push({ x: Math.round(20 + t * 160), y: Math.round(140 - t * 110) });
+      for (var i = 0; i < 8; i++) pts.push({ x: Math.round(Math.random() * W), y: Math.round(Math.random() * H) });
+      lnPresetSet(pts);
+    });
+    el.lnPresetTriangle.addEventListener("click", function () {
+      var a = { x: 40, y: 130 }, b = { x: 160, y: 130 }, c = { x: 100, y: 25 };
+      var pts = [];
+      function segment(p1, p2) { for (var t = 0; t <= 1.001; t += 0.06) pts.push({ x: Math.round(p1.x + t * (p2.x - p1.x)), y: Math.round(p1.y + t * (p2.y - p1.y)) }); }
+      segment(a, b); segment(b, c); segment(c, a);
+      lnPresetSet(pts);
+    });
+    el.lnPresetStar.addEventListener("click", function () {
+      var cx = 100, cy = 80, pts = [];
+      [0, 35, 75, 120].forEach(function (deg) {
+        var rad = deg * Math.PI / 180;
+        for (var t = -1; t <= 1.001; t += 0.09) pts.push({ x: Math.round(cx + t * 90 * Math.cos(rad)), y: Math.round(cy + t * 70 * Math.sin(rad)) });
+      });
+      lnPresetSet(pts.filter(function (p) { return p.x >= 0 && p.x < W && p.y >= 0 && p.y < H; }));
+    });
+    el.lnPresetVertical.addEventListener("click", function () {
+      var pts = [];
+      for (var t = 0; t <= 1.001; t += 0.05) pts.push({ x: Math.round(95 + t * 13), y: Math.round(10 + t * 140) });
+      for (var i = 0; i < 5; i++) pts.push({ x: Math.round(Math.random() * W), y: Math.round(Math.random() * H) });
+      lnPresetSet(pts);
+    });
+    el.lnPresetClear.addEventListener("click", function () { lnPresetSet([]); });
+    attachClickEditor(el.lnCanvas, function () { return lnPoints; }, function (p) { lnPoints = p; }, renderLine);
+
+    function svgSineOverlay(svgEl, pts, hoverIdx) {
+      svgEl.innerHTML = "";
+      var frag = document.createDocumentFragment();
+      // theta 0..PI maps to x 0..180 (viewBox width), rho -RHO_MAX..RHO_MAX maps to y 0..160
+      function rhoToY(rho) { return ((rho + RHO_MAX) / (2 * RHO_MAX)) * 160; }
+      pts.forEach(function (p, idx) {
+        var d = "";
+        for (var t = 0; t <= 180; t += 6) {
+          var theta = t * Math.PI / 180;
+          var rho = p.x * Math.cos(theta) + p.y * Math.sin(theta);
+          var px = t, py = rhoToY(rho);
+          d += (t === 0 ? "M" : "L") + px.toFixed(1) + "," + py.toFixed(1) + " ";
+        }
+        var path = document.createElementNS(svgNS, "path");
+        path.setAttribute("d", d.trim());
+        path.setAttribute("fill", "none");
+        var isHover = idx === hoverIdx;
+        path.setAttribute("stroke", isHover ? "var(--accent)" : "var(--text-muted)");
+        path.setAttribute("stroke-width", isHover ? "2.2" : "0.6");
+        path.setAttribute("opacity", isHover ? "1" : "0.35");
+        frag.appendChild(path);
+      });
+      svgEl.appendChild(frag);
+    }
+
+    function svgDualLineOverlay(svgEl, pts, cLo, cHi, hoverIdx) {
+      svgEl.innerHTML = "";
+      var frag = document.createDocumentFragment();
+      function cToY(c) { return ((c - cLo) / (cHi - cLo)) * 160; }
+      function mToX(m) { return ((m - MC_M_MIN) / (MC_M_MAX - MC_M_MIN)) * 200; }
+      pts.forEach(function (p, idx) {
+        var c1 = p.y - MC_M_MIN * p.x, c2 = p.y - MC_M_MAX * p.x;
+        var isHover = idx === hoverIdx;
+        var line = document.createElementNS(svgNS, "line");
+        line.setAttribute("x1", mToX(MC_M_MIN).toFixed(1)); line.setAttribute("y1", cToY(c1).toFixed(1));
+        line.setAttribute("x2", mToX(MC_M_MAX).toFixed(1)); line.setAttribute("y2", cToY(c2).toFixed(1));
+        line.setAttribute("stroke", isHover ? "var(--accent)" : "var(--text-muted)");
+        line.setAttribute("stroke-width", isHover ? "2.2" : "0.6");
+        line.setAttribute("opacity", isHover ? "1" : "0.35");
+        frag.appendChild(line);
+      });
+      svgEl.appendChild(frag);
+    }
+
+    function renderMc() {
+      if (lnPoints.length === 0) {
+        el.mcAccCanvas.width = 1; el.mcAccCanvas.height = 1;
+        el.mcAccOverlay.innerHTML = "";
+        el.mcDetected.textContent = "—";
+        return;
+      }
+      var range = mcRange(lnPoints);
+      var acc = mcAccumulate(lnPoints, range.lo, range.hi);
+      renderHeatmap(el.mcAccCanvas, acc, MC_M_STEPS + 1, MC_C_BINS);
+
+      svgDualLineOverlay(el.mcAccOverlay, lnPoints, range.lo, range.hi, lastLnHover);
+      var peak = findPeakMc(acc);
+      var detM = MC_M_MIN + (peak.mi / MC_M_STEPS) * (MC_M_MAX - MC_M_MIN);
+      var detC = range.lo + (peak.ci / MC_C_BINS) * (range.hi - range.lo);
+      var frac = peak.votes / lnPoints.length;
+      if (frac < 0.5) {
+        el.mcDetected.innerHTML = "โหวตสูงสุดในโดเมนนี้แค่ <b>" + peak.votes + "/" + lnPoints.length +
+          "</b> จุด (" + Math.round(frac * 100) + "%) — <b style=\"color:var(--warn)\">ไม่เจอ peak ที่ชัดเจน</b> " +
+          "(อาจเพราะมีหลายเส้นในภาพแบ่งโหวตกัน หรือเพราะ slope จริงชันเกินช่วง m ที่แสดง — ลองดูโดเมน ρ,θ ทางขวาที่ยังหาแต่ละเส้นได้ปกติ)";
+      } else {
+        el.mcDetected.innerHTML = "peak ที่ (m,c) ≈ (" + detM.toFixed(2) + ", " + detC.toFixed(1) + ") โหวต <b>" + peak.votes + "/" + lnPoints.length + "</b> จุด";
+      }
+      var px = (peak.mi / MC_M_STEPS) * 200, py = (peak.ci / MC_C_BINS) * 160;
+      if (frac >= 0.5) {
+        var c = document.createElementNS(svgNS, "circle");
+        c.setAttribute("cx", px.toFixed(1)); c.setAttribute("cy", py.toFixed(1)); c.setAttribute("r", "4");
+        c.setAttribute("fill", "none"); c.setAttribute("stroke", "var(--good)"); c.setAttribute("stroke-width", "2");
+        el.mcAccOverlay.appendChild(c);
+      }
+    }
+
+    function renderLine() {
+      renderPoints(el.lnCanvas, lnPoints);
+      el.lnPointCount.textContent = lnPoints.length;
+      el.lnTotalPoints.textContent = lnPoints.length;
+      renderMc();
+
+      var acc = lineAccumulate(lnPoints);
+      var maxV = renderHeatmap(el.lnAccCanvas, acc, THETA_STEPS, RHO_BINS);
+      el.lnMaxVotes.textContent = maxV;
+
+      var threshFrac = Number(el.lnThreshSlider.value) / 100;
+      var peaks = detectLinePeaks(acc, Math.max(2, Math.round(maxV * threshFrac)), 6, 4);
+      el.lnLineCount.textContent = peaks.length;
+
+      // overlay: peak markers on the accumulator, detected lines on the point image
+      el.lnAccOverlay.innerHTML = "";
+      var fragAcc = document.createDocumentFragment();
+      peaks.slice(0, 12).forEach(function (pk) {
+        var px = pk.theta / Math.PI * 180;
+        var py = (pk.rho + RHO_MAX) / (2 * RHO_MAX) * 160;
+        var c = document.createElementNS(svgNS, "circle");
+        c.setAttribute("cx", px.toFixed(1)); c.setAttribute("cy", py.toFixed(1)); c.setAttribute("r", "4");
+        c.setAttribute("fill", "none"); c.setAttribute("stroke", "var(--good)"); c.setAttribute("stroke-width", "2");
+        fragAcc.appendChild(c);
+      });
+      el.lnAccOverlay.appendChild(fragAcc);
+
+      el.lnOverlay.innerHTML = "";
+      var fragLines = document.createDocumentFragment();
+      peaks.slice(0, 12).forEach(function (pk) {
+        var seg = lineSegmentForParams(pk.theta, pk.rho);
+        var line = document.createElementNS(svgNS, "line");
+        line.setAttribute("x1", seg[0][0].toFixed(1)); line.setAttribute("y1", seg[0][1].toFixed(1));
+        line.setAttribute("x2", seg[1][0].toFixed(1)); line.setAttribute("y2", seg[1][1].toFixed(1));
+        line.setAttribute("stroke", "var(--good)"); line.setAttribute("stroke-width", "1.75"); line.setAttribute("opacity", "0.85");
+        fragLines.appendChild(line);
+      });
+      el.lnOverlay.appendChild(fragLines);
+
+      svgSineOverlay(el.lnAccOverlay, lnPoints, lastLnHover);
+      // re-append peak markers on top after the sine curves were (re)drawn
+      el.lnAccOverlay.appendChild(fragAcc);
+    }
+    el.lnCanvas.addEventListener("mousemove", function (evt) {
+      var rect = el.lnCanvas.getBoundingClientRect();
+      var x = (evt.clientX - rect.left) / rect.width * W, y = (evt.clientY - rect.top) / rect.height * H;
+      var idx = nearestPointIndex(lnPoints, x, y, 10);
+      if (idx !== lastLnHover) { lastLnHover = idx; renderLine(); }
+    });
+    el.lnCanvas.addEventListener("mouseleave", function () { if (lastLnHover !== -1) { lastLnHover = -1; renderLine(); } });
+    el.lnThreshSlider.addEventListener("input", function () {
+      el.lnThreshVal.textContent = el.lnThreshSlider.value + "%";
+      renderLine();
+    });
+
+    // ================= CIRCLE mode state + render =================
+    var crPoints = [];
+    var lastCrHover = -1;
+    var crSweepCache = null;
+    function crPresetSet(pts) { crPoints = pts; crSweepCache = null; renderCircle(); }
+    function circlePts(cx, cy, r, n, jitter) {
+      var pts = [];
+      for (var i = 0; i < n; i++) {
+        var theta = i * 2 * Math.PI / n;
+        var jx = jitter ? (Math.random() - 0.5) * jitter : 0, jy = jitter ? (Math.random() - 0.5) * jitter : 0;
+        pts.push({ x: Math.round(cx + r * Math.cos(theta) + jx), y: Math.round(cy + r * Math.sin(theta) + jy) });
+      }
+      return pts.filter(function (p) { return p.x >= 0 && p.x < W && p.y >= 0 && p.y < H; });
+    }
+    el.crPresetCircle.addEventListener("click", function () {
+      var pts = circlePts(100, 80, 40, 60, 1.2);
+      for (var i = 0; i < 10; i++) pts.push({ x: Math.round(Math.random() * W), y: Math.round(Math.random() * H) });
+      crPresetSet(pts);
+    });
+    el.crPresetTwo.addEventListener("click", function () {
+      var pts = circlePts(65, 70, 30, 44, 1).concat(circlePts(150, 100, 22, 34, 1));
+      crPresetSet(pts);
+    });
+    el.crPresetArc.addEventListener("click", function () {
+      var cx = 100, cy = 85, r = 45, pts = [];
+      for (var i = 0; i < 40; i++) {
+        var theta = (-0.6 + i / 40 * 1.3) * Math.PI;
+        pts.push({ x: Math.round(cx + r * Math.cos(theta)), y: Math.round(cy + r * Math.sin(theta)) });
+      }
+      for (var j = 0; j < 8; j++) pts.push({ x: Math.round(Math.random() * W), y: Math.round(Math.random() * H) });
+      crPresetSet(pts.filter(function (p) { return p.x >= 0 && p.x < W && p.y >= 0 && p.y < H; }));
+    });
+    el.crPresetClear.addEventListener("click", function () { crPresetSet([]); });
+    attachClickEditor(el.crCanvas, function () { return crPoints; }, function (p) { crPoints = p; crSweepCache = null; }, renderCircle);
+
+    function svgCircleLocusOverlay(svgEl, pts, r, hoverIdx) {
+      svgEl.innerHTML = "";
+      var frag = document.createDocumentFragment();
+      pts.forEach(function (p, idx) {
+        var isHover = idx === hoverIdx;
+        var c = document.createElementNS(svgNS, "circle");
+        c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", r);
+        c.setAttribute("fill", "none");
+        c.setAttribute("stroke", isHover ? "var(--accent)" : "var(--text-muted)");
+        c.setAttribute("stroke-width", isHover ? "2" : "0.6");
+        c.setAttribute("opacity", isHover ? "0.95" : "0.3");
+        frag.appendChild(c);
+      });
+      svgEl.appendChild(frag);
+    }
+    function renderRadiiChart(svgEl, results, bestR) {
+      svgEl.innerHTML = "";
+      if (!results.length) return;
+      var maxV = 0;
+      results.forEach(function (r) { if (r.votes > maxV) maxV = r.votes; });
+      maxV = maxV || 1;
+      var W2 = 300, H2 = 90, padL = 4, padR = 4, padT = 6, padB = 14;
+      var plotW = W2 - padL - padR, plotH = H2 - padT - padB;
+      var n = results.length;
+      var d = "";
+      results.forEach(function (r, i) {
+        var px = padL + (i / (n - 1)) * plotW;
+        var py = padT + plotH - (r.votes / maxV) * plotH;
+        d += (i === 0 ? "M" : "L") + px.toFixed(1) + "," + py.toFixed(1) + " ";
+      });
+      var path = document.createElementNS(svgNS, "path");
+      path.setAttribute("d", d.trim()); path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "var(--accent)"); path.setAttribute("stroke-width", "1.75");
+      svgEl.appendChild(path);
+      // marker at current r slider position
+      var curIdx = bestR - R_MIN;
+      if (curIdx >= 0 && curIdx < n) {
+        var mx = padL + (curIdx / (n - 1)) * plotW;
+        var my = padT + plotH - (results[curIdx].votes / maxV) * plotH;
+        var dot = document.createElementNS(svgNS, "circle");
+        dot.setAttribute("cx", mx.toFixed(1)); dot.setAttribute("cy", my.toFixed(1)); dot.setAttribute("r", "3");
+        dot.setAttribute("fill", "var(--good)");
+        svgEl.appendChild(dot);
+      }
+    }
+
+    function renderCircle() {
+      renderPoints(el.crCanvas, crPoints);
+      el.crPointCount.textContent = crPoints.length;
+      el.crTotalPoints.textContent = crPoints.length;
+
+      var r = Number(el.crRadiusSlider.value);
+      var acc = circleAccumulate(crPoints, r);
+      renderHeatmap(el.crAccCanvas, acc, W, H);
+      var peak = findPeak2D(acc, W, H);
+      el.crPeakVotes.textContent = peak.votes > 0 ? peak.votes : 0;
+
+      el.crAccOverlay.innerHTML = "";
+      if (peak.votes > 0) {
+        var c = document.createElementNS(svgNS, "circle");
+        c.setAttribute("cx", peak.x); c.setAttribute("cy", peak.y); c.setAttribute("r", "4");
+        c.setAttribute("fill", "none"); c.setAttribute("stroke", "var(--good)"); c.setAttribute("stroke-width", "2");
+        el.crAccOverlay.appendChild(c);
+      }
+
+      if (!crSweepCache) crSweepCache = sweepRadii(crPoints);
+      renderRadiiChart(el.crRadiiChart, crSweepCache, r);
+
+      var threshFrac = Number(el.crThreshSlider.value) / 100;
+      var maxAll = 0;
+      crSweepCache.forEach(function (res) { if (res.votes > maxAll) maxAll = res.votes; });
+      var circles = detectCirclesFromSweep(crSweepCache, Math.max(2, Math.round(maxAll * threshFrac)), 5);
+      el.crCircleCount.textContent = circles.length;
+
+      el.crOverlay.innerHTML = "";
+      var frag = document.createDocumentFragment();
+      circles.slice(0, 8).forEach(function (cir) {
+        var circ = document.createElementNS(svgNS, "circle");
+        circ.setAttribute("cx", cir.x); circ.setAttribute("cy", cir.y); circ.setAttribute("r", cir.r);
+        circ.setAttribute("fill", "none"); circ.setAttribute("stroke", "var(--good)"); circ.setAttribute("stroke-width", "1.75"); circ.setAttribute("opacity", "0.9");
+        frag.appendChild(circ);
+      });
+      el.crOverlay.appendChild(frag);
+
+      svgCircleLocusOverlay(el.crOverlay, crPoints, r, lastCrHover);
+      el.crOverlay.appendChild(frag);
+    }
+    el.crCanvas.addEventListener("mousemove", function (evt) {
+      var rect = el.crCanvas.getBoundingClientRect();
+      var x = (evt.clientX - rect.left) / rect.width * W, y = (evt.clientY - rect.top) / rect.height * H;
+      var idx = nearestPointIndex(crPoints, x, y, 10);
+      if (idx !== lastCrHover) { lastCrHover = idx; renderCircle(); }
+    });
+    el.crCanvas.addEventListener("mouseleave", function () { if (lastCrHover !== -1) { lastCrHover = -1; renderCircle(); } });
+    el.crRadiusSlider.addEventListener("input", function () {
+      el.crRadiusVal.textContent = el.crRadiusSlider.value;
+      renderCircle();
+    });
+    el.crThreshSlider.addEventListener("input", function () {
+      el.crThreshVal.textContent = el.crThreshSlider.value + "%";
+      renderCircle();
+    });
+
+    // ================= math toggle + init =================
+    el.mathToggle.addEventListener("click", function () {
+      var show = el.mathBody.hidden;
+      el.mathBody.hidden = !show;
+      el.mathToggle.setAttribute("aria-expanded", String(show));
+      el.mathToggle.textContent = show ? "ซ่อนสูตร" : "แสดงสูตรคำนวณ";
+    });
+
+    setMode("line");
+    el.lnPresetLine.click();
+    el.crPresetCircle.click();
+  })();
+</script>

@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Live DoG Filter — วิดีโอสด/ไฟล์ ผ่าน Difference of Gaussians</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- Open Graph / Social sharing -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Live DoG Filter — วิดีโอสด/ไฟล์ ผ่าน Difference of Gaussians">
+<meta property="og:description" content="เปิดกล้องหรืออัปโหลดไฟล์วิดีโอ กรองแบบ real-time ด้วย DoG ทั้งหมดในเบราว์เซอร์ ปรับ σ, k, gain แล้วดูขอบเปลี่ยนสด ๆ">
+<meta property="og:url" content="https://urban.cpe.ku.ac.th/image_processing/demos/video-dog-demo/">
+<meta property="og:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/video-dog-demo/og.png">
+<meta property="og:image:width" content="1734">
+<meta property="og:image:height" content="907">
+<meta property="og:site_name" content="Image Processing Demos">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Live DoG Filter — วิดีโอสด/ไฟล์ ผ่าน Difference of Gaussians">
+<meta name="twitter:description" content="เปิดกล้องหรืออัปโหลดไฟล์วิดีโอ กรองแบบ real-time ด้วย DoG ทั้งหมดในเบราว์เซอร์ ปรับ σ, k, gain แล้วดูขอบเปลี่ยนสด ๆ">
+<meta name="twitter:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/video-dog-demo/og.png">
+<meta name="description" content="ดึงภาพจากกล้องหรือไฟล์วิดีโอ กรองแบบ real-time ด้วย Difference of Gaussians ทั้งหมดประมวลผลบนเบราว์เซอร์ ไม่มีการอัปโหลดขึ้นเซิร์ฟเวอร์">
+<style>
+  :root {
+    --bg: #f5f4f8;
+    --surface: #ffffff;
+    --surface-2: #ece8f3;
+    --border: #dad3e8;
+    --text-primary: #201c2b;
+    --text-secondary: #524a62;
+    --text-muted: #877d97;
+    --accent: #5b3fc4;
+    --accent-ink: #ffffff;
+    --safe: #1f8c6b;
+    --warn: #b0392c;
+    --shadow: 0 1px 2px rgba(32, 28, 43, 0.06), 0 8px 24px rgba(32, 28, 43, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161320; --surface: #1e1929; --surface-2: #272033; --border: #3c3350;
+      --text-primary: #f1eef8; --text-secondary: #c8bedb; --text-muted: #9184a8;
+      --accent: #9c85e8; --accent-ink: #1a1428;
+      --safe: #4fc79b; --warn: #e0715f;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161320; --surface: #1e1929; --surface-2: #272033; --border: #3c3350;
+    --text-primary: #f1eef8; --text-secondary: #c8bedb; --text-muted: #9184a8;
+    --accent: #9c85e8; --accent-ink: #1a1428;
+    --safe: #4fc79b; --warn: #e0715f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text-primary);
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .page { max-width: 1100px; margin: 0 auto; padding: 40px 20px 80px; display: flex; flex-direction: column; gap: 26px; }
+  .hero { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow { margin: 0; font: 600 12px/1 -apple-system, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+  h1 { margin: 0; font-family: Charter, "Iowan Old Style", "Noto Serif Thai", Georgia, serif; font-weight: 600; font-size: clamp(26px, 3.6vw, 38px); text-wrap: balance; }
+  .lede { margin: 0; max-width: 74ch; color: var(--text-secondary); font-size: 16px; }
+  section.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+
+  .mode-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .radio-chip { display: flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface-2); cursor: pointer; font-size: 13.5px; font-weight: 700; color: var(--text-secondary); }
+  .radio-chip input { accent-color: var(--accent); }
+  .radio-chip.checked { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+
+  .section-title { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 700; }
+  .section-note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+
+  .source-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  input[type="file"] { font-size: 13.5px; color: var(--text-secondary); }
+  .btn-primary {
+    padding: 9px 18px; border-radius: 999px; border: none; background: var(--accent); color: var(--accent-ink);
+    font-size: 13.5px; font-weight: 700; cursor: pointer;
+  }
+  .btn-primary:hover { filter: brightness(1.08); }
+
+  .video-stage-grid { display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 700px) { .video-stage-grid { grid-template-columns: 1fr; } }
+  .stage-col { display: flex; flex-direction: column; gap: 8px; }
+  .stage-col h5 { margin: 0; font-size: 11.5px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+  .canvas-frame { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+  .canvas-frame canvas { display: block; width: 100%; height: auto; }
+  .placeholder-msg {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center;
+    padding: 16px; font-size: 12.5px; color: var(--text-muted); background: var(--surface-2);
+  }
+  .canvas-frame.has-video .placeholder-msg { display: none; }
+
+  .stat-row { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; color: var(--text-secondary); }
+  .stat-row b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+  .calc-toggle-row { display: flex; }
+  .calc-steps-grid { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 4px; }
+  .calc-steps-grid .stage-col { width: 160px; }
+
+  .step-panel { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+  .filter-controls { display: flex; flex-wrap: wrap; gap: 16px 26px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 190px; flex: 1; }
+  .field label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+  .slider-field { display: flex; align-items: center; gap: 10px; }
+  input[type="range"] { accent-color: var(--accent); flex: 1; }
+  .slider-val { font: 700 13px/1 ui-monospace, "SF Mono", Consolas, monospace; min-width: 4.4em; text-align: right; }
+  select {
+    padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2);
+    color: var(--text-primary); font-size: 13px;
+  }
+
+  .math-panel { padding: 18px 24px; }
+  .math-toggle { font: 600 13.5px -apple-system, sans-serif; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; }
+  .math-body { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .math-body p { margin: 0; font-size: 14px; color: var(--text-secondary); }
+  .formula { font: 500 15px/1.5 ui-monospace, "SF Mono", Consolas, monospace; background: var(--surface-2); border-radius: 8px; padding: 10px 14px; color: var(--text-primary); }
+  .math-body a { color: var(--accent); }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">05 — Edge Detection</p>
+    <h1>Live DoG Filter — วิดีโอสด/ไฟล์ ผ่าน Difference of Gaussians</h1>
+    <p class="lede">
+      ดึงภาพจากไฟล์วิดีโอหรือกล้องของคุณ แล้วกรองแบบ real-time ด้วย Difference of Gaussians (DoG)
+      ประมวลผลทั้งหมดในเบราว์เซอร์ (client-side) ไม่มีข้อมูลส่งขึ้นเซิร์ฟเวอร์ — ลาก σ, อัตราส่วน k,
+      gain แล้วดูผลเปลี่ยนทันที
+    </p>
+  </header>
+
+  <section class="card" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 14px;">
+    <p class="section-title">แหล่งวิดีโอ</p>
+    <div class="mode-row">
+      <label class="radio-chip checked">
+        <input type="radio" name="src" value="file" checked> ไฟล์วิดีโอ
+      </label>
+      <label class="radio-chip">
+        <input type="radio" name="src" value="webcam"> กล้อง (Webcam)
+      </label>
+    </div>
+    <div id="fileControls" class="source-controls">
+      <input type="file" id="fileInput" accept="video/*">
+      <p class="section-note">ไฟล์เล่นวนในเครื่อง ไม่ถูกอัปโหลดไปที่ไหน</p>
+    </div>
+    <div id="webcamControls" class="source-controls" style="display: none;">
+      <button id="webcamBtn" class="btn-primary" type="button">เปิดกล้อง</button>
+      <p class="section-note" id="webcamStatus"></p>
+    </div>
+  </section>
+
+  <section class="card" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 14px;">
+    <div class="video-stage-grid">
+      <div class="stage-col">
+        <h5>ต้นฉบับ</h5>
+        <div class="canvas-frame" id="origFrame">
+          <canvas id="origCanvas"></canvas>
+          <div class="placeholder-msg" id="placeholder">เลือกไฟล์วิดีโอ หรือกดเปิดกล้อง เพื่อเริ่ม</div>
+        </div>
+      </div>
+      <div class="stage-col">
+        <h5>DoG output</h5>
+        <div class="canvas-frame" id="dogFrame">
+          <canvas id="dogCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="stat-row">
+      <span>ความละเอียดประมวลผล: <b id="procResLabel">—</b></span>
+      <span>เวลาต่อเฟรม: <b id="frameTimeLabel">—</b> ms</span>
+      <span>FPS: <b id="fpsLabel">—</b></span>
+    </div>
+    <div class="calc-toggle-row">
+      <label class="radio-chip" id="calcToggleWrap">
+        <input type="checkbox" id="calcToggle"> แสดงขั้นตอนการคำนวณ (σ₁, σ₂, DoG)
+      </label>
+    </div>
+    <div class="calc-steps-grid" id="calcStepsGrid" hidden>
+      <div class="stage-col">
+        <h5>Gaussian σ₁</h5>
+        <div class="canvas-frame"><canvas id="blur1Canvas"></canvas></div>
+      </div>
+      <div class="stage-col">
+        <h5>Gaussian σ₂ = k·σ₁</h5>
+        <div class="canvas-frame"><canvas id="blur2Canvas"></canvas></div>
+      </div>
+      <div class="stage-col">
+        <h5>DoG = σ₁ − σ₂</h5>
+        <div class="canvas-frame"><canvas id="dogStepCanvas"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card step-panel">
+    <p class="section-title">พารามิเตอร์</p>
+    <div class="filter-controls">
+      <div class="field">
+        <label for="sigma1Slider">σ₁ (blur ละเอียด)</label>
+        <div class="slider-field">
+          <input type="range" id="sigma1Slider" min="0.5" max="4" step="0.1" value="1">
+          <span class="slider-val" id="sigma1Val">1.0</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="kSlider">k (σ₂ = k · σ₁)</label>
+        <div class="slider-field">
+          <input type="range" id="kSlider" min="1.1" max="2.2" step="0.05" value="1.6">
+          <span class="slider-val" id="kVal">1.60 (σ₂ = 1.60)</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="gainSlider">Gain (ขยายค่า DoG ให้เห็นชัด)</label>
+        <div class="slider-field">
+          <input type="range" id="gainSlider" min="1" max="20" step="0.5" value="8">
+          <span class="slider-val" id="gainVal">8.0</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="qualitySelect">ความละเอียดประมวลผล</label>
+        <select id="qualitySelect">
+          <option value="120">เร็ว (120px กว้าง)</option>
+          <option value="200" selected>กลาง (200px กว้าง)</option>
+          <option value="280">คมชัด (280px กว้าง)</option>
+        </select>
+      </div>
+    </div>
+    <div class="filter-controls">
+      <div class="field" style="min-width: 260px;">
+        <label>รูปแบบผลลัพธ์</label>
+        <div class="mode-row">
+          <label class="radio-chip checked">
+            <input type="radio" name="dogMode" value="continuous" checked> ต่อเนื่อง (สีเทา)
+          </label>
+          <label class="radio-chip">
+            <input type="radio" name="dogMode" value="binary"> ขอบ (threshold)
+          </label>
+        </div>
+      </div>
+      <div class="field" id="thresholdField" style="display: none;">
+        <label for="thresholdSlider">Threshold</label>
+        <div class="slider-field">
+          <input type="range" id="thresholdSlider" min="0" max="1" step="0.01" value="0.08">
+          <span class="slider-val" id="thresholdVal">0.08</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card math-panel">
+    <button class="math-toggle" id="mathToggle" aria-expanded="false">แสดงสูตรคำนวณ</button>
+    <div class="math-body" id="mathBody" hidden>
+      <p>ทุกเฟรม: แปลงเป็น grayscale แล้ว blur ด้วย Gaussian สองค่า σ ต่างกัน จากนั้นลบกัน</p>
+      <p class="formula">DoG(x, y) = [G(σ₁) * I](x, y) − [G(σ₂) * I](x, y), &nbsp; σ₂ = k · σ₁</p>
+      <p>
+        Blur แต่ละอันเป็น separable convolution (แนวนอนแล้วแนวตั้ง) ขนาด kernel โต
+        ตามกฎ 3σ เหมือนใน log-derivation-demo — ยิ่ง σ มาก kernel ยิ่งใหญ่ ยิ่งช้า
+      </p>
+      <p>
+        เมื่อ k ≈ 1.6 ผลลัพธ์ DoG จะประมาณค่า Laplacian of Gaussian (LoG) ได้ดี
+        (มาตรฐานจาก Marr–Hildreth) เป็น band-pass filter ที่ตอบสนองแรงตรงขอบ/บริเวณที่ intensity
+        เปลี่ยนเร็ว และใกล้ศูนย์บนพื้นเรียบ — ดูที่มาของ LoG แบบเต็มได้ใน log-derivation-demo
+      </p>
+      <p>Threshold mode: เอาค่า |DoG|·gain มาเทียบกับ threshold·255 ถ้ามากกว่าคือ "ขอบ" (ขาว)</p>
+    </div>
+  </section>
+
+  <footer>
+    Department of Computer Engineering · Kasetsart University
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var el = {};
+  ["fileControls", "webcamControls", "fileInput", "webcamBtn", "webcamStatus",
+   "origCanvas", "origFrame", "placeholder", "dogCanvas", "dogFrame",
+   "procResLabel", "frameTimeLabel", "fpsLabel",
+   "sigma1Slider", "sigma1Val", "kSlider", "kVal", "gainSlider", "gainVal",
+   "qualitySelect", "thresholdField", "thresholdSlider", "thresholdVal",
+   "mathToggle", "mathBody",
+   "calcToggleWrap", "calcToggle", "calcStepsGrid",
+   "blur1Canvas", "blur2Canvas", "dogStepCanvas"
+  ].forEach(function (id) { el[id] = document.getElementById(id); });
+
+  var origCtx = el.origCanvas.getContext("2d", { willReadFrequently: true });
+  var dogCtx = el.dogCanvas.getContext("2d", { willReadFrequently: true });
+  var blur1Ctx = el.blur1Canvas.getContext("2d", { willReadFrequently: true });
+  var blur2Ctx = el.blur2Canvas.getContext("2d", { willReadFrequently: true });
+  var dogStepCtx = el.dogStepCanvas.getContext("2d", { willReadFrequently: true });
+  var showCalcSteps = false;
+
+  var video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.setAttribute("playsinline", "");
+
+  var stream = null;
+  var objectUrl = null;
+  var videoActive = false;
+  var currentMode = "continuous";
+
+  var procW = 200, procH = 150;
+  var grayBuf = null, tmpBuf = null, blur1Buf = null, blur2Buf = null;
+
+  // Gaussian kernel support must grow with sigma (three-sigma rule) —
+  // same pattern as log-derivation-demo, so blur amount tracks the slider honestly.
+  function gaussianSize(sigma) { return 2 * Math.ceil(3 * sigma) + 1; }
+  function gaussianKernel1D(size, sigma) {
+    var c = (size - 1) / 2, k = new Array(size), sum = 0;
+    for (var i = 0; i < size; i++) { var x = i - c; var v = Math.exp(-(x * x) / (2 * sigma * sigma)); k[i] = v; sum += v; }
+    for (var i = 0; i < size; i++) k[i] /= sum;
+    return k;
+  }
+
+  function blurSeparable(src, w, h, sigma, tmp, dst) {
+    var size = gaussianSize(sigma);
+    var kernel = gaussianKernel1D(size, sigma);
+    var off = (size - 1) / 2;
+    for (var y = 0; y < h; y++) {
+      var rowOff = y * w;
+      for (var x = 0; x < w; x++) {
+        var sum = 0;
+        for (var k = 0; k < size; k++) {
+          var xx = x + (k - off);
+          if (xx < 0) xx = 0; else if (xx >= w) xx = w - 1;
+          sum += src[rowOff + xx] * kernel[k];
+        }
+        tmp[rowOff + x] = sum;
+      }
+    }
+    for (var x = 0; x < w; x++) {
+      for (var y = 0; y < h; y++) {
+        var sum = 0;
+        for (var k = 0; k < size; k++) {
+          var yy = y + (k - off);
+          if (yy < 0) yy = 0; else if (yy >= h) yy = h - 1;
+          sum += tmp[yy * w + x] * kernel[k];
+        }
+        dst[y * w + x] = sum;
+      }
+    }
+  }
+
+  function resizeBuffers(w, h) {
+    procW = w; procH = h;
+    grayBuf = new Float32Array(w * h);
+    tmpBuf = new Float32Array(w * h);
+    blur1Buf = new Float32Array(w * h);
+    blur2Buf = new Float32Array(w * h);
+    el.origCanvas.width = w; el.origCanvas.height = h;
+    el.dogCanvas.width = w; el.dogCanvas.height = h;
+    el.blur1Canvas.width = w; el.blur1Canvas.height = h;
+    el.blur2Canvas.width = w; el.blur2Canvas.height = h;
+    el.dogStepCanvas.width = w; el.dogStepCanvas.height = h;
+    el.procResLabel.textContent = w + " × " + h + " px";
+  }
+
+  function applyResolution() {
+    if (!video.videoWidth) return;
+    var targetW = parseInt(el.qualitySelect.value, 10);
+    var scale = targetW / video.videoWidth;
+    resizeBuffers(targetW, Math.max(1, Math.round(video.videoHeight * scale)));
+  }
+
+  function onVideoReady() {
+    if (!video.videoWidth) return;
+    videoActive = true;
+    el.origFrame.classList.add("has-video");
+    applyResolution();
+  }
+  video.addEventListener("loadeddata", onVideoReady);
+
+  var emaFrameTime = null;
+
+  function processFrame() {
+    var t0 = performance.now();
+
+    origCtx.drawImage(video, 0, 0, procW, procH);
+    var imgData = origCtx.getImageData(0, 0, procW, procH);
+    var d = imgData.data;
+    for (var i = 0, p = 0; i < grayBuf.length; i++, p += 4) {
+      grayBuf[i] = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
+    }
+
+    var sigma1 = parseFloat(el.sigma1Slider.value);
+    var k = parseFloat(el.kSlider.value);
+    var sigma2 = sigma1 * k;
+
+    blurSeparable(grayBuf, procW, procH, sigma1, tmpBuf, blur1Buf);
+    blurSeparable(grayBuf, procW, procH, sigma2, tmpBuf, blur2Buf);
+
+    var gain = parseFloat(el.gainSlider.value);
+    var threshold = parseFloat(el.thresholdSlider.value);
+    var outData = dogCtx.createImageData(procW, procH);
+    var od = outData.data;
+    for (var i = 0, p = 0; i < blur1Buf.length; i++, p += 4) {
+      var dogVal = blur1Buf[i] - blur2Buf[i];
+      var val;
+      if (currentMode === "continuous") {
+        val = 128 + gain * dogVal;
+        val = val < 0 ? 0 : (val > 255 ? 255 : val);
+      } else {
+        var mag = Math.abs(dogVal) * gain;
+        val = mag > threshold * 255 ? 255 : 0;
+      }
+      od[p] = od[p + 1] = od[p + 2] = val;
+      od[p + 3] = 255;
+    }
+    dogCtx.putImageData(outData, 0, 0);
+
+    if (showCalcSteps) {
+      var b1Data = blur1Ctx.createImageData(procW, procH);
+      var b1 = b1Data.data;
+      var b2Data = blur2Ctx.createImageData(procW, procH);
+      var b2 = b2Data.data;
+      for (var i = 0, p = 0; i < blur1Buf.length; i++, p += 4) {
+        var v1 = blur1Buf[i]; v1 = v1 < 0 ? 0 : (v1 > 255 ? 255 : v1);
+        var v2 = blur2Buf[i]; v2 = v2 < 0 ? 0 : (v2 > 255 ? 255 : v2);
+        b1[p] = b1[p + 1] = b1[p + 2] = v1; b1[p + 3] = 255;
+        b2[p] = b2[p + 1] = b2[p + 2] = v2; b2[p + 3] = 255;
+      }
+      blur1Ctx.putImageData(b1Data, 0, 0);
+      blur2Ctx.putImageData(b2Data, 0, 0);
+      dogStepCtx.putImageData(outData, 0, 0);
+    }
+
+    var dt = performance.now() - t0;
+    emaFrameTime = emaFrameTime === null ? dt : emaFrameTime * 0.9 + dt * 0.1;
+    el.frameTimeLabel.textContent = emaFrameTime.toFixed(1);
+    el.fpsLabel.textContent = String(Math.round(1000 / Math.max(emaFrameTime, 1)));
+  }
+
+  function tick() {
+    if (videoActive && video.readyState >= 2) processFrame();
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  function stopCurrentSource() {
+    videoActive = false;
+    el.origFrame.classList.remove("has-video");
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+    video.pause();
+    video.removeAttribute("src");
+    video.srcObject = null;
+    video.load();
+    el.procResLabel.textContent = "—";
+    el.frameTimeLabel.textContent = "—";
+    el.fpsLabel.textContent = "—";
+    emaFrameTime = null;
+    origCtx.clearRect(0, 0, el.origCanvas.width, el.origCanvas.height);
+    dogCtx.clearRect(0, 0, el.dogCanvas.width, el.dogCanvas.height);
+    blur1Ctx.clearRect(0, 0, el.blur1Canvas.width, el.blur1Canvas.height);
+    blur2Ctx.clearRect(0, 0, el.blur2Canvas.width, el.blur2Canvas.height);
+    dogStepCtx.clearRect(0, 0, el.dogStepCanvas.width, el.dogStepCanvas.height);
+  }
+  window.addEventListener("beforeunload", stopCurrentSource);
+
+  document.querySelectorAll('input[name="src"]').forEach(function (r) {
+    r.addEventListener("change", function () {
+      stopCurrentSource();
+      document.querySelectorAll('input[name="src"]').forEach(function (rr) {
+        rr.closest(".radio-chip").classList.toggle("checked", rr.checked);
+      });
+      el.fileControls.style.display = r.value === "file" ? "flex" : "none";
+      el.webcamControls.style.display = r.value === "webcam" ? "flex" : "none";
+      el.webcamStatus.textContent = "";
+    });
+  });
+
+  el.fileInput.addEventListener("change", function (e) {
+    var f = e.target.files[0];
+    if (!f) return;
+    stopCurrentSource();
+    objectUrl = URL.createObjectURL(f);
+    video.src = objectUrl;
+    video.loop = true;
+    video.play().catch(function (err) { console.warn(err); });
+  });
+
+  el.webcamBtn.addEventListener("click", function () {
+    el.webcamStatus.textContent = "กำลังขอสิทธิ์กล้อง...";
+    navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: false })
+      .then(function (s) {
+        stopCurrentSource();
+        stream = s;
+        video.srcObject = s;
+        video.play().catch(function (err) { console.warn(err); });
+        el.webcamStatus.textContent = "กล้องเปิดอยู่";
+      })
+      .catch(function (err) {
+        el.webcamStatus.textContent = "เปิดกล้องไม่สำเร็จ: " + (err && err.message ? err.message : String(err));
+      });
+  });
+
+  el.qualitySelect.addEventListener("change", function () { if (videoActive) applyResolution(); });
+
+  function syncSigmaLabels() {
+    var sigma1 = parseFloat(el.sigma1Slider.value);
+    var k = parseFloat(el.kSlider.value);
+    el.sigma1Val.textContent = sigma1.toFixed(1);
+    el.kVal.textContent = k.toFixed(2) + " (σ₂ = " + (sigma1 * k).toFixed(2) + ")";
+  }
+  el.sigma1Slider.addEventListener("input", syncSigmaLabels);
+  el.kSlider.addEventListener("input", syncSigmaLabels);
+  syncSigmaLabels();
+
+  el.gainSlider.addEventListener("input", function () { el.gainVal.textContent = parseFloat(el.gainSlider.value).toFixed(1); });
+  el.thresholdSlider.addEventListener("input", function () { el.thresholdVal.textContent = parseFloat(el.thresholdSlider.value).toFixed(2); });
+
+  document.querySelectorAll('input[name="dogMode"]').forEach(function (r) {
+    r.addEventListener("change", function () {
+      currentMode = r.value;
+      document.querySelectorAll('input[name="dogMode"]').forEach(function (rr) {
+        rr.closest(".radio-chip").classList.toggle("checked", rr.checked);
+      });
+      el.thresholdField.style.display = currentMode === "binary" ? "flex" : "none";
+    });
+  });
+
+  el.calcToggle.addEventListener("change", function () {
+    showCalcSteps = el.calcToggle.checked;
+    el.calcStepsGrid.hidden = !showCalcSteps;
+    el.calcToggleWrap.classList.toggle("checked", showCalcSteps);
+  });
+
+  el.mathToggle.addEventListener("click", function () {
+    var show = el.mathBody.hidden;
+    el.mathBody.hidden = !show;
+    el.mathToggle.setAttribute("aria-expanded", String(show));
+    el.mathToggle.textContent = show ? "ซ่อนสูตร" : "แสดงสูตรคำนวณ";
+  });
+})();
+</script>
+</body>
+</html>

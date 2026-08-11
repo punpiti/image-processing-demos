@@ -1,0 +1,1224 @@
+<title>Fourier, DCT, Wavelet — series ของสัมประสิทธิ์บน basis ต่างกัน</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- Open Graph / Social sharing -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Fourier, DCT, Wavelet — series ของสัมประสิทธิ์บน basis ต่างกัน">
+<meta property="og:description" content="สลายสัญญาณเป็นสัมประสิทธิ์บน basis ต่างกัน เก็บแค่ Top-K แล้ว reconstruct เทียบกับ lowpass+downsample ที่งบเท่ากัน">
+<meta property="og:url" content="https://urban.cpe.ku.ac.th/image_processing/demos/basis-decomposition-demo/">
+<meta property="og:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/basis-decomposition-demo/og.png">
+<meta property="og:image:width" content="1731">
+<meta property="og:image:height" content="909">
+<meta property="og:site_name" content="Image Processing Demos">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fourier, DCT, Wavelet — series ของสัมประสิทธิ์บน basis ต่างกัน">
+<meta name="twitter:description" content="สลายสัญญาณเป็นสัมประสิทธิ์บน basis ต่างกัน เก็บแค่ Top-K แล้ว reconstruct เทียบกับ lowpass+downsample ที่งบเท่ากัน">
+<meta name="twitter:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/basis-decomposition-demo/og.png">
+<style>
+  :root {
+    --bg: #f3f3f6;
+    --surface: #ffffff;
+    --surface-2: #eceef2;
+    --border: #dadce2;
+    --text-primary: #1e1f2a;
+    --text-secondary: #4f5262;
+    --text-muted: #83869b;
+    --accent: #5748b5;
+    --accent-ink: #ffffff;
+    --orig: #83869b;
+    --recon: #1f8c6b;
+    --downs: #b0592c;
+    --shadow: 0 1px 2px rgba(30,31,42,.06), 0 8px 24px rgba(30,31,42,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131320; --surface: #191a28; --surface-2: #222333; --border: #363850;
+      --text-primary: #edeef6; --text-secondary: #c2c4d6; --text-muted: #83869b;
+      --accent: #9b8ce0; --accent-ink: #14101f;
+      --orig: #9799ad; --recon: #4fc79b; --downs: #e0924a;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131320; --surface: #191a28; --surface-2: #222333; --border: #363850;
+    --text-primary: #edeef6; --text-secondary: #c2c4d6; --text-muted: #83869b;
+    --accent: #9b8ce0; --accent-ink: #14101f;
+    --orig: #9799ad; --recon: #4fc79b; --downs: #e0924a;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text-primary); font-family: -apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif; line-height: 1.55; }
+  .page { max-width: 1160px; margin: 0 auto; padding: 40px 20px 80px; display: flex; flex-direction: column; gap: 26px; }
+  .hero { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow { margin: 0; font: 600 12px/1 -apple-system,sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  h1 { margin: 0; font-family: Charter,"Iowan Old Style","Noto Serif Thai",Georgia,serif; font-weight: 600; font-size: clamp(26px,3.6vw,38px); text-wrap: balance; }
+  .lede { margin: 0; max-width: 72ch; color: var(--text-secondary); font-size: 16px; }
+  section.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+
+  .narrative { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .insight { display: flex; gap: 12px; align-items: flex-start; opacity: .28; filter: grayscale(.4); transition: opacity .35s ease, filter .35s ease; }
+  .insight.active { opacity: 1; filter: none; }
+  .insight .dot { flex: none; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--border); }
+  .insight.active .dot { background: var(--accent); }
+  .insight p { margin: 0; font-family: Charter,"Iowan Old Style","Noto Serif Thai",Georgia,serif; font-size: 16px; }
+  .insight b { font-weight: 700; }
+  .insight .k-accent { color: var(--accent); }
+  .insight .k-recon { color: var(--recon); }
+  .insight .k-downs { color: var(--downs); }
+
+  .section-title { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; }
+  .section-note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+
+  .step-panel { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .preset-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button.action { font: 600 13px -apple-system,sans-serif; color: var(--text-secondary); background: var(--surface-2); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  button.action.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+
+  .radio-row, .mode-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .radio-chip { display: flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface-2); cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--text-secondary); }
+  .radio-chip input { accent-color: var(--accent); }
+  .radio-chip.checked { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+
+  [data-mode-panel] { display: none; }
+  [data-mode-panel].active { display: flex; }
+
+  .img-canvas-frame { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-2); max-width: 260px; }
+  canvas.img-canvas, canvas.heat-canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .img-compare-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+  .img-compare-box { display: flex; flex-direction: column; gap: 6px; }
+  .img-compare-box h5 { margin: 0; font-size: 11.5px; font-weight: 700; color: var(--text-secondary); }
+
+  .gallery-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .gallery-box { display: flex; flex-direction: column; gap: 4px; }
+  .gallery-box h5 { margin: 0; font-size: 11px; font-weight: 700; color: var(--text-secondary); }
+  svg.mini { width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+
+  .basis2d-grid { display: grid; gap: 2px; max-width: 340px; }
+  .basis2d-tile { display: flex; flex-direction: column; gap: 3px; }
+  .basis2d-tile canvas, canvas.basis2d-cell {
+    width: 100%; height: auto; display: block; image-rendering: pixelated; image-rendering: crisp-edges;
+    border: 1px solid var(--border); cursor: zoom-in;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  }
+  canvas.basis2d-cell:hover {
+    position: relative; z-index: 5; transform: scale(4.5);
+    border-color: var(--accent); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .basis2d-tile canvas:hover {
+    position: relative; z-index: 5; transform: scale(2.2);
+    border-color: var(--accent); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .basis2d-label { font-size: 9.5px; color: var(--text-secondary); text-align: center; }
+
+  .chart-wrap { display: flex; flex-direction: column; gap: 6px; }
+  svg.chart { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--text-secondary); }
+  .legend-line { width: 16px; height: 0; border-top: 2.5px solid; display: inline-block; margin-right: 5px; vertical-align: middle; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 220px; }
+  .field label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+  .slider-field { display: flex; align-items: center; gap: 10px; }
+  input[type="range"] { accent-color: var(--accent); flex: 1; }
+  .slider-val { font: 700 13px/1 ui-monospace,"SF Mono",Consolas,monospace; min-width: 3em; text-align: right; }
+  .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+  .toggle-row input { accent-color: var(--accent); }
+
+  .stat-row { display: flex; flex-wrap: wrap; gap: 20px; font-size: 13px; color: var(--text-secondary); }
+  .stat-row b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+  .compare-banner { display: flex; flex-wrap: wrap; gap: 24px; align-items: baseline; padding: 12px 16px; background: var(--surface-2); border-radius: 10px; border: 1px solid var(--border); }
+  .compare-banner .big { font: 700 20px ui-monospace,"SF Mono",Consolas,monospace; }
+  .compare-banner .big.recon { color: var(--recon); }
+  .compare-banner .big.downs { color: var(--downs); }
+  .compare-banner .label { font-size: 12px; color: var(--text-secondary); }
+  .winner-tag { font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+  .winner-tag.recon { background: color-mix(in srgb, var(--recon) 20%, var(--surface)); color: var(--recon); }
+  .winner-tag.downs { background: color-mix(in srgb, var(--downs) 20%, var(--surface)); color: var(--downs); }
+
+  .math-panel { padding: 18px 24px; }
+  .math-toggle { font: 600 13.5px -apple-system,sans-serif; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; }
+  .math-body { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .formula { font-family: ui-monospace,"SF Mono",Consolas,monospace; font-size: 12.5px; color: var(--text-primary); padding: 10px 12px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border); white-space: pre-wrap; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 480px) {
+    .page { padding: 22px 14px 48px; gap: 18px; }
+    .narrative, .step-panel, .math-panel { padding: 16px 16px; }
+  }
+  @media (min-width: 1050px) {
+    .page {
+      max-width: min(94vw, 1900px);
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      grid-template-areas: "hero hero" "narrative mode" "narrative controls" "narrative signal" "narrative basis" "narrative coeff" "narrative compare" "narrative math" "footer footer";
+      gap: 14px 28px;
+      padding: 20px 32px 26px;
+    }
+    .hero { grid-area: hero; }
+    .narrative { grid-area: narrative; position: sticky; top: 18px; align-self: start; max-height: calc(100vh - 36px); overflow-y: auto; }
+    .card.mode-card { grid-area: mode; padding: 14px 20px; }
+    .step-controls { grid-area: controls; padding: 16px 20px; }
+    .step-signal { grid-area: signal; padding: 16px 20px; }
+    .step-basis { grid-area: basis; padding: 16px 20px; }
+    .step-coeff { grid-area: coeff; padding: 16px 20px; }
+    .step-compare { grid-area: compare; padding: 16px 20px; }
+    .math-panel { grid-area: math; padding: 14px 20px; }
+    footer { grid-area: footer; }
+  }
+  @media (min-width: 1900px) { .page { grid-template-columns: 420px 1fr; } }
+</style>
+
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">01204483 Image Processing — Topic 09, Wavelet Transforms</p>
+    <h1>Fourier, DCT, Wavelet — series ของสัมประสิทธิ์บน basis ต่างกัน</h1>
+    <p class="lede">
+      แนวคิดเดียวกันหมด: สัญญาณ = ผลรวมของ "รูปคลื่นพื้นฐาน (basis)" แต่ละแบบ
+      คูณด้วยสัมประสิทธิ์ของมัน — เปลี่ยนแค่ว่าเลือก basis อะไร (cosine, complex
+      exponential, wavelet) ตัวไหนสัญญาณไม่มีองค์ประกอบนั้นจริง ๆ สัมประสิทธิ์ก็
+      เป็น 0 ไปเอง แล้วลองดูว่าทำไมวิธีนี้เอาชนะการทำ lowpass + downsample แบบ
+      ตรงไปตรงมาได้
+    </p>
+  </header>
+
+  <section class="card narrative">
+    <div class="insight active" id="insA">
+      <span class="dot"></span>
+      <p>Fourier Series: สัญญาณ (คาบ) = ผลรวมของ cos(k·ω₀·t) หลายฮาร์มอนิก แต่ละตัวมี<b class="k-accent">สัมประสิทธิ์</b>ของตัวเอง — คือ series ของความถี่ที่เป็นจำนวนเท่าของความถี่มูลฐาน</p>
+    </div>
+    <div class="insight active" id="insB">
+      <span class="dot"></span>
+      <p>Fourier Transform (DFT) ทำเรื่องเดียวกัน แต่ใช้ basis เป็น <b class="k-accent">complex exponential</b> e<sup>iωt</sup> = cos(ωt)+i·sin(ωt) — สำหรับสัญญาณจริง ผลลัพธ์เทียบเท่ากับ cos/sin series พอดี</p>
+    </div>
+    <div class="insight active" id="insC">
+      <span class="dot"></span>
+      <p>DCT ก็ series ของสัมประสิทธิ์บน cosine basis (คนละเงื่อนไขขอบเขตกับ Fourier) และ Wavelet Transform ก็ series ของสัมประสิทธิ์บน basis รูปคลื่นแบบอื่น — <b class="k-accent">โครงสร้างเดียวกันทั้งหมด</b></p>
+    </div>
+    <div class="insight active" id="insD">
+      <span class="dot"></span>
+      <p>เลือก basis ได้หลายแบบ: cosine (Fourier/DCT), complex exponential (DFT), หรือ Mexican Hat / Haar ใน wavelet — ดู gallery รูปคลื่นตัวอย่างที่ข้อ 2 ด้านล่าง</p>
+    </div>
+    <div class="insight active" id="insE">
+      <span class="dot"></span>
+      <p>ตัดสัมประสิทธิ์ตัวเล็ก ๆ ทิ้ง (ให้เป็น 0) แล้ว reconstruct กลับ — เก็บแค่ตัวใหญ่ ๆ ไม่กี่ตัวก็ยังใกล้เคียงต้นฉบับมาก เพราะพลังงานสัญญาณส่วนใหญ่กระจุกอยู่ที่สัมประสิทธิ์ไม่กี่ตัว (ตามทฤษฎีบท Parseval)</p>
+    </div>
+    <div class="insight active" id="insF">
+      <span class="dot"></span>
+      <p>ทำไมไม่ใช้แค่ <b class="k-downs">lowpass + downsample</b> เฉย ๆ? เทียบดูที่ข้อ 4 — งบตัวเลขเท่ากัน แต่การเลือก basis ที่เหมาะกับสัญญาณให้ผลลัพธ์แม่นกว่า โดยเฉพาะสัญญาณที่มีจุดกระโดดเฉพาะจุด (wavelet ชนะ) หรือสัญญาณที่มีไม่กี่ความถี่เด่น (Fourier/DCT ชนะ)</p>
+    </div>
+  </section>
+
+  <section class="card mode-card">
+    <p class="section-title" style="margin-bottom:8px">แสดงแบบ</p>
+    <div class="mode-row" id="modeRow">
+      <label class="radio-chip checked"><input type="radio" name="dim" value="1d" checked /> 1D (สัญญาณ)</label>
+      <label class="radio-chip"><input type="radio" name="dim" value="2d" /> 2D (ภาพ)</label>
+    </div>
+  </section>
+
+  <section class="card step-panel step-controls">
+    <p class="section-title">เลือก Basis (ใช้ร่วมกันทั้ง 1D และ 2D)</p>
+    <div class="radio-row" id="basisRadios">
+      <label class="radio-chip checked"><input type="radio" name="basis" value="fourier" checked /> Fourier (cos / complex exponential)</label>
+      <label class="radio-chip"><input type="radio" name="basis" value="dct" /> DCT (cosine)</label>
+      <label class="radio-chip"><input type="radio" name="basis" value="wavelet" /> Wavelet (Haar)</label>
+    </div>
+  </section>
+
+  <!-- ============================= 1D MODE ============================= -->
+  <section class="card step-panel step-signal" data-mode-panel="1d">
+    <p class="section-title">1 · เลือกสัญญาณทดสอบ</p>
+    <div class="preset-row">
+      <button class="action" id="presetSparse">ผลรวมไม่กี่ความถี่</button>
+      <button class="action" id="presetTransient">มีจุดกระโดดเฉพาะจุด</button>
+      <button class="action" id="presetNoisy">สัญญาณ + noise</button>
+    </div>
+    <div class="chart-wrap">
+      <svg class="chart" id="signalChart" viewBox="0 0 560 160" preserveAspectRatio="xMidYMid meet"><path id="signalPath" fill="none" stroke="var(--orig)" stroke-width="2" /></svg>
+    </div>
+    <p class="section-note">สัญญาณยาว N=64 ตัวอย่าง</p>
+  </section>
+
+  <section class="card step-panel step-basis" data-mode-panel="1d">
+    <p class="section-title">2 · รูปคลื่นของ Basis (1D)</p>
+    <div class="gallery-grid" id="galleryGrid"></div>
+    <p class="section-note" id="basisNote">—</p>
+  </section>
+
+  <section class="card step-panel step-coeff" data-mode-panel="1d">
+    <p class="section-title">3 · สัมประสิทธิ์ (Coefficients) และเก็บแค่ Top-K</p>
+    <p class="section-note">มันคือ <b>sequence ของสัมประสิทธิ์</b> เหมือนกันทุก transform — สิ่งที่ต่างกันมีแค่ 2 อย่าง: (1) basis function ที่ใช้ฉายสัญญาณลงไป (ข้อ 2) และ (2) ความถี่มูลฐาน/สเกลของแต่ละตำแหน่งใน sequence นั้น</p>
+    <div class="formula" id="coeffFormula">—</div>
+    <p class="section-note" id="fundFreqNote">—</p>
+    <div class="chart-wrap">
+      <svg class="chart" id="coeffChart" viewBox="0 0 560 148" preserveAspectRatio="xMidYMid meet"><g id="coeffBars"></g><g id="coeffAxisTicks"></g></svg>
+      <p class="section-note" id="coeffAxisNote">—</p>
+    </div>
+    <div class="field">
+      <label for="kSlider">จำนวนสัมประสิทธิ์ที่เก็บไว้ (K จากทั้งหมด N=64)</label>
+      <div class="slider-field">
+        <input type="range" id="kSlider" min="1" max="64" step="1" value="8" />
+        <span class="slider-val" id="kVal">8</span>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <svg class="chart" id="reconChart" viewBox="0 0 560 160" preserveAspectRatio="xMidYMid meet">
+        <path id="reconOrigPath" fill="none" stroke="var(--orig)" stroke-width="1.75" stroke-dasharray="4,3" />
+        <path id="reconPath" fill="none" stroke="var(--recon)" stroke-width="2.25" />
+      </svg>
+      <div class="chart-legend">
+        <span><i class="legend-line" style="border-color:var(--orig)"></i>ต้นฉบับ</span>
+        <span><i class="legend-line" style="border-color:var(--recon)"></i>Reconstruct จาก Top-K</span>
+      </div>
+    </div>
+    <div class="stat-row">
+      <span>RMSE: <b id="reconRmse">—</b></span>
+      <span>จำนวนตัวเลขจริงที่เก็บจริง: <b id="reconBudget">—</b> จาก N=64</span>
+    </div>
+  </section>
+
+  <section class="card step-panel step-compare" data-mode-panel="1d">
+    <p class="section-title">4 · เทียบกับ Lowpass Filter + Downsample แบบง่าย ๆ</p>
+    <label class="toggle-row"><input type="checkbox" id="lpfToggle" checked /> กรอง lowpass ก่อน downsample (ปิดเพื่อดู aliasing ถ้า sample ตรง ๆ)</label>
+    <div class="chart-wrap">
+      <svg class="chart" id="downsChart" viewBox="0 0 560 160" preserveAspectRatio="xMidYMid meet">
+        <path id="downsOrigPath" fill="none" stroke="var(--orig)" stroke-width="1.75" stroke-dasharray="4,3" />
+        <path id="downsPath" fill="none" stroke="var(--downs)" stroke-width="2.25" />
+      </svg>
+      <div class="chart-legend">
+        <span><i class="legend-line" style="border-color:var(--orig)"></i>ต้นฉบับ</span>
+        <span><i class="legend-line" style="border-color:var(--downs)"></i>Lowpass + Downsample แล้วขยายกลับ</span>
+      </div>
+    </div>
+    <div class="compare-banner">
+      <div><div class="big recon" id="cmpReconRmse">—</div><div class="label">RMSE — Top-K (ข้อ 3)</div></div>
+      <div><div class="big downs" id="cmpDownsRmse">—</div><div class="label">RMSE — Lowpass+Downsample (งบใกล้เคียงกัน)</div></div>
+      <div class="winner-tag" id="winnerTag">—</div>
+    </div>
+  </section>
+
+  <!-- ============================= 2D MODE ============================= -->
+  <section class="card step-panel step-signal" data-mode-panel="2d">
+    <p class="section-title">1 · เลือกภาพทดสอบ</p>
+    <div class="preset-row">
+      <button class="action" id="presetSparse2D">ผลรวมไม่กี่ความถี่</button>
+      <button class="action" id="presetTransient2D">มีจุดเฉพาะที่</button>
+      <button class="action" id="presetNoisy2D">ภาพ + noise</button>
+    </div>
+    <div class="img-canvas-frame">
+      <canvas class="img-canvas" id="img2D_src"></canvas>
+    </div>
+    <p class="section-note">ภาพขาวดำ 64×64 พิกเซล — ใช้ N เดียวกับสัญญาณ 1D</p>
+  </section>
+
+  <section class="card step-panel step-basis" data-mode-panel="2d">
+    <p class="section-title">2 · รูปคลื่นของ Basis (2D)</p>
+    <div class="basis2d-grid" id="gallery2DGrid"></div>
+    <p class="section-note" id="basis2DNote">—</p>
+  </section>
+
+  <section class="card step-panel step-coeff" data-mode-panel="2d">
+    <p class="section-title">3 · สัมประสิทธิ์ 2D (Coefficients) และเก็บแค่ Top-K</p>
+    <p class="section-note">โครงสร้างเดียวกับ 1D ทุกอย่าง แค่สัมประสิทธิ์ตอนนี้เรียงเป็นตาราง (u,v) 2 มิติแทนเส้นเดียว — สว่าง = ขนาดสัมประสิทธิ์ใหญ่ (ใช้ sqrt เพื่อให้เห็นค่าเล็ก ๆ ด้วย ไม่ใช่ scale เชิงเส้นตรง ๆ)</p>
+    <div class="formula" id="coeffFormula2D">—</div>
+    <p class="section-note" id="fundFreqNote2D">—</p>
+    <div class="img-compare-grid">
+      <div class="img-compare-box">
+        <h5>Coefficient magnitude (u,v)</h5>
+        <div class="img-canvas-frame"><canvas class="heat-canvas" id="img2D_heat"></canvas></div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="kSlider2D">จำนวนสัมประสิทธิ์ที่เก็บไว้ (K จากทั้งหมด N²=4096)</label>
+      <div class="slider-field">
+        <input type="range" id="kSlider2D" min="4" max="1024" step="4" value="64" />
+        <span class="slider-val" id="kVal2D">64</span>
+      </div>
+    </div>
+    <div class="img-compare-grid">
+      <div class="img-compare-box">
+        <h5>ต้นฉบับ</h5>
+        <div class="img-canvas-frame"><canvas class="img-canvas" id="img2D_orig"></canvas></div>
+      </div>
+      <div class="img-compare-box">
+        <h5>Reconstruct จาก Top-K</h5>
+        <div class="img-canvas-frame"><canvas class="img-canvas" id="img2D_recon"></canvas></div>
+      </div>
+    </div>
+    <div class="stat-row">
+      <span>RMSE: <b id="reconRmse2D">—</b></span>
+      <span>จำนวนตัวเลขจริงที่เก็บจริง: <b id="reconBudget2D">—</b> จาก N²=4096</span>
+    </div>
+  </section>
+
+  <section class="card step-panel step-compare" data-mode-panel="2d">
+    <p class="section-title">4 · เทียบกับ Lowpass Filter + Downsample แบบง่าย ๆ (2D)</p>
+    <label class="toggle-row"><input type="checkbox" id="lpfToggle2D" checked /> กรอง lowpass ก่อน downsample (ปิดเพื่อดู aliasing ถ้า sample ตรง ๆ)</label>
+    <div class="img-compare-grid">
+      <div class="img-compare-box">
+        <h5>ต้นฉบับ</h5>
+        <div class="img-canvas-frame"><canvas class="img-canvas" id="img2D_downsOrig"></canvas></div>
+      </div>
+      <div class="img-compare-box">
+        <h5>Lowpass + Downsample แล้วขยายกลับ</h5>
+        <div class="img-canvas-frame"><canvas class="img-canvas" id="img2D_downs"></canvas></div>
+      </div>
+    </div>
+    <div class="compare-banner">
+      <div><div class="big recon" id="cmpReconRmse2D">—</div><div class="label">RMSE — Top-K (ข้อ 3)</div></div>
+      <div><div class="big downs" id="cmpDownsRmse2D">—</div><div class="label">RMSE — Lowpass+Downsample (งบใกล้เคียงกัน)</div></div>
+      <div class="winner-tag" id="winnerTag2D">—</div>
+    </div>
+  </section>
+
+  <section class="card math-panel">
+    <button class="math-toggle" id="mathToggle" aria-expanded="false">แสดงสูตรคำนวณ</button>
+    <div class="math-body" id="mathBody" hidden>
+      <div class="formula">DFT: X[k] = Σₙ x[n]·e^(−i2πkn/N)   ,   IDFT: x[n] = (1/N)Σₖ X[k]·e^(i2πkn/N)</div>
+      <div class="formula">DCT-II: X[k] = Σₙ x[n]·cos(π/N·(n+0.5)·k)</div>
+      <div class="formula">Haar (1 level): avg[i]=(x[2i]+x[2i+1])/√2 , diff[i]=(x[2i]−x[2i+1])/√2 — ทำซ้ำบน avg ไปเรื่อย ๆ หลายระดับ</div>
+      <div class="formula">Mexican Hat (Ricker) mother wavelet: ψ(t) ∝ (1−t²)·e^(−t²/2)  — รูปทรงเดียวกับที่ใช้ใน LoG (โมดูล Edge Detection)</div>
+      <div class="formula">Parseval: Σ x[n]² = Σ |สัมประสิทธิ์|² — พลังงานเท่าเดิมเสมอ ⇒ เก็บสัมประสิทธิ์ขนาดใหญ่สุดก่อน = ทิ้งพลังงานน้อยที่สุด</div>
+    </div>
+  </section>
+
+  <footer>
+    ตัวอย่างสมมติเพื่อการสอน — N=64 ตัวอย่าง, คำนวณ DFT/DCT แบบตรง (O(N²)) และ Haar Wavelet Transform แบบหลายระดับ; ส่วนสาธิตแบบโต้ตอบใช้ Haar wavelet (orthogonal, ง่ายที่สุด) ส่วน Mexican Hat แสดงเป็นตัวอย่างรูปทรง mother wavelet อีกแบบเท่านั้น
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var N = 64;
+
+    function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+    function gaussianRandom(mean, sd) {
+      var u = 1 - Math.random(), v = Math.random();
+      var z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+      return mean + z * sd;
+    }
+
+    // ================= transforms (verified in Node before writing this file) =================
+    function dft(x) {
+      var re = new Array(N).fill(0), im = new Array(N).fill(0);
+      for (var k = 0; k < N; k++) {
+        for (var n = 0; n < N; n++) {
+          var ang = -2 * Math.PI * k * n / N;
+          re[k] += x[n] * Math.cos(ang); im[k] += x[n] * Math.sin(ang);
+        }
+      }
+      return { re: re, im: im };
+    }
+    function idft(re, im) {
+      var x = new Array(N).fill(0);
+      for (var n = 0; n < N; n++) {
+        var sum = 0;
+        for (var k = 0; k < N; k++) {
+          var ang = 2 * Math.PI * k * n / N;
+          sum += re[k] * Math.cos(ang) - im[k] * Math.sin(ang);
+        }
+        x[n] = sum / N;
+      }
+      return x;
+    }
+    function dct(x) {
+      var X = new Array(N).fill(0);
+      for (var k = 0; k < N; k++) {
+        var sum = 0;
+        for (var n = 0; n < N; n++) sum += x[n] * Math.cos(Math.PI / N * (n + 0.5) * k);
+        X[k] = sum;
+      }
+      return X;
+    }
+    function idct(X) {
+      var x = new Array(N).fill(0);
+      for (var n = 0; n < N; n++) {
+        var sum = X[0] / 2;
+        for (var k = 1; k < N; k++) sum += X[k] * Math.cos(Math.PI / N * (n + 0.5) * k);
+        x[n] = sum * (2 / N);
+      }
+      return x;
+    }
+    function haarForward(x) {
+      var levels = Math.log2(x.length);
+      var cur = x.slice(), details = [];
+      for (var L = 0; L < levels; L++) {
+        var half = cur.length / 2, avg = new Array(half), diff = new Array(half);
+        for (var i = 0; i < half; i++) {
+          avg[i] = (cur[2 * i] + cur[2 * i + 1]) / Math.SQRT2;
+          diff[i] = (cur[2 * i] - cur[2 * i + 1]) / Math.SQRT2;
+        }
+        details.unshift(diff);
+        cur = avg;
+      }
+      return { approx: cur, details: details };
+    }
+    function haarInverse(approx, details) {
+      var cur = approx.slice();
+      for (var L = 0; L < details.length; L++) {
+        var diff = details[L], half = cur.length, out = new Array(half * 2);
+        for (var i = 0; i < half; i++) {
+          out[2 * i] = (cur[i] + diff[i]) / Math.SQRT2;
+          out[2 * i + 1] = (cur[i] - diff[i]) / Math.SQRT2;
+        }
+        cur = out;
+      }
+      return cur;
+    }
+    function flattenHaar(hw) {
+      var arr = hw.approx.slice();
+      hw.details.forEach(function (d) { arr = arr.concat(d); });
+      return arr; // length N, order: [approx(1), detail-coarsest(1), detail(2), detail(4), ... detail-finest(N/2)]
+    }
+    function unflattenHaar(arr) {
+      var approx = [arr[0]], details = [], idx = 1;
+      var levels = Math.log2(N);
+      for (var L = 0; L < levels; L++) {
+        var len = Math.pow(2, L);
+        details.push(arr.slice(idx, idx + len));
+        idx += len;
+      }
+      return { approx: approx, details: details };
+    }
+
+    // ================= 2D transforms (verified in Node before writing this file: forward+inverse
+    // round-trip RMSE = 0 for all three, top-K RMSE decreases monotonically to 0 at full budget) =================
+    // 2D image uses the same N=64 as the 1D signal, so the 1D dct()/idct()/dft() functions above
+    // (which close over the global N) can be reused directly for each row/column pass.
+    function dftComplex(reIn, imIn) {
+      var re = new Array(N).fill(0), im = new Array(N).fill(0);
+      for (var k = 0; k < N; k++) {
+        for (var m = 0; m < N; m++) {
+          var ang = -2 * Math.PI * k * m / N, c = Math.cos(ang), s = Math.sin(ang);
+          re[k] += reIn[m] * c - imIn[m] * s; im[k] += reIn[m] * s + imIn[m] * c;
+        }
+      }
+      return { re: re, im: im };
+    }
+    function idftComplex(reIn, imIn) {
+      var re = new Array(N).fill(0), im = new Array(N).fill(0);
+      for (var m = 0; m < N; m++) {
+        for (var k = 0; k < N; k++) {
+          var ang = 2 * Math.PI * k * m / N, c = Math.cos(ang), s = Math.sin(ang);
+          re[m] += reIn[k] * c - imIn[k] * s; im[m] += reIn[k] * s + imIn[k] * c;
+        }
+        re[m] /= N; im[m] /= N;
+      }
+      return { re: re, im: im };
+    }
+    function dft2D(img) {
+      var reRows = [], imRows = [];
+      for (var y = 0; y < N; y++) {
+        var r = dft(img.slice(y * N, (y + 1) * N));
+        reRows.push(r.re); imRows.push(r.im);
+      }
+      var reOut = new Array(N * N).fill(0), imOut = new Array(N * N).fill(0);
+      for (var x = 0; x < N; x++) {
+        var colRe = [], colIm = [];
+        for (var y = 0; y < N; y++) { colRe.push(reRows[y][x]); colIm.push(imRows[y][x]); }
+        var r2 = dftComplex(colRe, colIm);
+        for (var y2 = 0; y2 < N; y2++) { reOut[y2 * N + x] = r2.re[y2]; imOut[y2 * N + x] = r2.im[y2]; }
+      }
+      return { re: reOut, im: imOut };
+    }
+    function idft2D(re, im) {
+      var reAfterCol = new Array(N * N).fill(0), imAfterCol = new Array(N * N).fill(0);
+      for (var x = 0; x < N; x++) {
+        var colRe = [], colIm = [];
+        for (var y = 0; y < N; y++) { colRe.push(re[y * N + x]); colIm.push(im[y * N + x]); }
+        var r = idftComplex(colRe, colIm);
+        for (var y2 = 0; y2 < N; y2++) { reAfterCol[y2 * N + x] = r.re[y2]; imAfterCol[y2 * N + x] = r.im[y2]; }
+      }
+      var out = new Float64Array(N * N);
+      for (var y = 0; y < N; y++) {
+        var rowRe = Array.from(reAfterCol.slice(y * N, (y + 1) * N));
+        var rowIm = Array.from(imAfterCol.slice(y * N, (y + 1) * N));
+        var r2 = idftComplex(rowRe, rowIm);
+        for (var x2 = 0; x2 < N; x2++) out[y * N + x2] = r2.re[x2];
+      }
+      return out;
+    }
+    function dct2D(img) {
+      var rowT = new Array(N * N).fill(0);
+      for (var y = 0; y < N; y++) {
+        var X = dct(Array.from(img.slice(y * N, (y + 1) * N)));
+        for (var x = 0; x < N; x++) rowT[y * N + x] = X[x];
+      }
+      var out = new Array(N * N).fill(0);
+      for (var x = 0; x < N; x++) {
+        var col = []; for (var y2 = 0; y2 < N; y2++) col.push(rowT[y2 * N + x]);
+        var Xc = dct(col);
+        for (var y3 = 0; y3 < N; y3++) out[y3 * N + x] = Xc[y3];
+      }
+      return out;
+    }
+    function idct2D(X) {
+      var colInv = new Array(N * N).fill(0);
+      for (var x = 0; x < N; x++) {
+        var col = []; for (var y = 0; y < N; y++) col.push(X[y * N + x]);
+        var xc = idct(col);
+        for (var y2 = 0; y2 < N; y2++) colInv[y2 * N + x] = xc[y2];
+      }
+      var out = new Float64Array(N * N);
+      for (var y = 0; y < N; y++) {
+        var row = Array.from(colInv.slice(y * N, (y + 1) * N));
+        var xr = idct(row);
+        for (var x2 = 0; x2 < N; x2++) out[y * N + x2] = xr[x2];
+      }
+      return out;
+    }
+    // non-standard (tensor) 2D Haar: full multi-level 1D Haar down every row, then full
+    // multi-level 1D Haar down every column of that — simpler to compose correctly than the
+    // "standard" pyramid form (recursing on LL only) while still invertible and energy-compacting.
+    function haar2D(img) {
+      var rowT = new Array(N * N).fill(0);
+      for (var y = 0; y < N; y++) {
+        var flat = flattenHaar(haarForward(Array.from(img.slice(y * N, (y + 1) * N))));
+        for (var x = 0; x < N; x++) rowT[y * N + x] = flat[x];
+      }
+      var out = new Array(N * N).fill(0);
+      for (var x = 0; x < N; x++) {
+        var col = []; for (var y2 = 0; y2 < N; y2++) col.push(rowT[y2 * N + x]);
+        var flatC = flattenHaar(haarForward(col));
+        for (var y3 = 0; y3 < N; y3++) out[y3 * N + x] = flatC[y3];
+      }
+      return out;
+    }
+    function haar2DInverse(coeffs) {
+      var colInv = new Array(N * N).fill(0);
+      for (var x = 0; x < N; x++) {
+        var col = []; for (var y = 0; y < N; y++) col.push(coeffs[y * N + x]);
+        var hw = unflattenHaar(col), rec = haarInverse(hw.approx, hw.details);
+        for (var y2 = 0; y2 < N; y2++) colInv[y2 * N + x] = rec[y2];
+      }
+      var out = new Float64Array(N * N);
+      for (var y = 0; y < N; y++) {
+        var row = Array.from(colInv.slice(y * N, (y + 1) * N));
+        var hw2 = unflattenHaar(row), rec2 = haarInverse(hw2.approx, hw2.details);
+        for (var x2 = 0; x2 < N; x2++) out[y * N + x2] = rec2[x2];
+      }
+      return out;
+    }
+
+    function rmse(a, b) {
+      var s = 0; for (var i = 0; i < a.length; i++) s += (a[i] - b[i]) * (a[i] - b[i]);
+      return Math.sqrt(s / a.length);
+    }
+
+    // ================= DOM refs =================
+    var el = {};
+    ["modeRow",
+     "presetSparse", "presetTransient", "presetNoisy", "signalPath",
+     "galleryGrid", "basisNote", "gallery2DGrid", "basis2DNote",
+     "coeffBars", "coeffAxisTicks", "coeffFormula", "fundFreqNote", "coeffAxisNote",
+     "kSlider", "kVal", "reconOrigPath", "reconPath", "reconRmse", "reconBudget",
+     "lpfToggle", "downsOrigPath", "downsPath",
+     "cmpReconRmse", "cmpDownsRmse", "winnerTag",
+     "mathToggle", "mathBody",
+     // 2D
+     "presetSparse2D", "presetTransient2D", "presetNoisy2D",
+     "img2D_src", "img2D_heat", "img2D_orig", "img2D_recon", "img2D_downsOrig", "img2D_downs",
+     "coeffFormula2D", "fundFreqNote2D",
+     "kSlider2D", "kVal2D", "reconRmse2D", "reconBudget2D",
+     "lpfToggle2D", "cmpReconRmse2D", "cmpDownsRmse2D", "winnerTag2D"
+    ].forEach(function (id) { el[id] = document.getElementById(id); });
+
+    // ================= mode switch =================
+    function setMode(mode) {
+      document.querySelectorAll("[data-mode-panel]").forEach(function (p) {
+        p.classList.toggle("active", p.getAttribute("data-mode-panel") === mode);
+      });
+      document.querySelectorAll("#modeRow .radio-chip").forEach(function (c) {
+        c.classList.toggle("checked", c.querySelector("input").checked);
+      });
+    }
+    document.querySelectorAll('input[name="dim"]').forEach(function (r) {
+      r.addEventListener("change", function () { setMode(r.value); });
+    });
+
+    // ================= signal presets =================
+    function sparseSignal() {
+      var x = new Array(N);
+      for (var n = 0; n < N; n++) x[n] = 0.6 * Math.sin(2 * Math.PI * 3 * n / N) + 0.35 * Math.sin(2 * Math.PI * 7 * n / N) + 0.2 * Math.cos(2 * Math.PI * 1 * n / N);
+      return x;
+    }
+    function transientSignal() {
+      var x = new Array(N);
+      for (var n = 0; n < N; n++) {
+        var spike = Math.exp(-Math.pow((n - 32), 2) / 1.2) * 3.2;
+        x[n] = 0.35 * Math.sin(2 * Math.PI * 1 * n / N) + spike;
+      }
+      return x;
+    }
+    function noisySignal() {
+      var x = new Array(N);
+      for (var n = 0; n < N; n++) x[n] = 0.55 * Math.sin(2 * Math.PI * 2 * n / N) + gaussianRandom(0, 0.3);
+      return x;
+    }
+    function setPresetActive(btn) {
+      [el.presetSparse, el.presetTransient, el.presetNoisy].forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+    }
+
+    var signal = null, yMin = -2, yMax = 2;
+    function loadSignal(genFn, btn) {
+      setPresetActive(btn);
+      signal = genFn();
+      var mn = Math.min.apply(null, signal), mx = Math.max.apply(null, signal);
+      var pad = (mx - mn) * 0.15 || 0.5;
+      yMin = mn - pad; yMax = mx + pad;
+      recompute();
+    }
+    el.presetSparse.addEventListener("click", function () { loadSignal(sparseSignal, el.presetSparse); });
+    el.presetTransient.addEventListener("click", function () { loadSignal(transientSignal, el.presetTransient); });
+    el.presetNoisy.addEventListener("click", function () { loadSignal(noisySignal, el.presetNoisy); });
+
+    // ================= 2D image presets (M = N = 64, grayscale 0-255) =================
+    function sparseImage2D() {
+      var g = new Float64Array(N * N);
+      for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+        g[y * N + x] = 128 + 60 * Math.cos(2 * Math.PI * 3 * x / N) + 40 * Math.sin(2 * Math.PI * 2 * y / N) +
+          25 * Math.cos(2 * Math.PI * (2 * x + 3 * y) / N);
+      }
+      return g;
+    }
+    function transientImage2D() {
+      var g = new Float64Array(N * N).fill(90);
+      for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+        if (x > 10 && x < 26 && y > 10 && y < 26) g[y * N + x] = 220;
+        if (Math.hypot(x - 45, y - 20) < 9) g[y * N + x] = 40;
+        if (x > 30 && x < 58 && y > 40 && y < 48) g[y * N + x] = 200;
+      }
+      return g;
+    }
+    function noisyImage2D() {
+      var g = new Float64Array(N * N);
+      for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+        var v = 128 + 50 * Math.sin(2 * Math.PI * 2 * x / N) * Math.cos(2 * Math.PI * 1 * y / N) + gaussianRandom(0, 18);
+        g[y * N + x] = clamp(v, 0, 255);
+      }
+      return g;
+    }
+    function setPresetActive2D(btn) {
+      [el.presetSparse2D, el.presetTransient2D, el.presetNoisy2D].forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+    }
+    var image2D = null;
+    function loadImage2D(genFn, btn) {
+      setPresetActive2D(btn);
+      image2D = genFn();
+      recompute2D();
+    }
+    el.presetSparse2D.addEventListener("click", function () { loadImage2D(sparseImage2D, el.presetSparse2D); });
+    el.presetTransient2D.addEventListener("click", function () { loadImage2D(transientImage2D, el.presetTransient2D); });
+    el.presetNoisy2D.addEventListener("click", function () { loadImage2D(noisyImage2D, el.presetNoisy2D); });
+
+    // ================= 2D grayscale canvas rendering =================
+    function renderGrayCanvas(canvas, arr) {
+      canvas.width = N; canvas.height = N;
+      var ctx = canvas.getContext("2d");
+      var img = ctx.createImageData(N, N);
+      for (var p = 0; p < N * N; p++) {
+        var v = clamp(Math.round(arr[p]), 0, 255);
+        var o = p * 4;
+        img.data[o] = v; img.data[o + 1] = v; img.data[o + 2] = v; img.data[o + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    // heatmap of coefficient magnitudes, perceptually scaled with sqrt so small
+    // coefficients stay visible next to the few huge ones (raw linear scale would
+    // look like a single bright dot on a black field)
+    function renderHeatCanvas(canvas, mags) {
+      canvas.width = N; canvas.height = N;
+      var ctx = canvas.getContext("2d");
+      var img = ctx.createImageData(N, N);
+      var maxM = Math.sqrt(Math.max.apply(null, mags)) || 1;
+      for (var p = 0; p < N * N; p++) {
+        var v = clamp(Math.round((Math.sqrt(mags[p]) / maxM) * 255), 0, 255);
+        var o = p * 4;
+        img.data[o] = v; img.data[o + 1] = v; img.data[o + 2] = v; img.data[o + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+
+    // ================= SVG line-chart helpers =================
+    var svgNS = "http://www.w3.org/2000/svg";
+    var CW = 560, CH = 160, PADX = 8;
+    function xScale(n) { return PADX + (n / (N - 1)) * (CW - 2 * PADX); }
+    function yScale(v) { return CH - 12 - ((v - yMin) / (yMax - yMin)) * (CH - 24); }
+    function pathFor(arr) {
+      var d = "";
+      for (var n = 0; n < N; n++) d += (n === 0 ? "M" : "L") + xScale(n).toFixed(1) + "," + yScale(arr[n]).toFixed(1) + " ";
+      return d.trim();
+    }
+
+    function getBasis() { return document.querySelector('input[name="basis"]:checked').value; }
+
+    // ================= basis function gallery =================
+    function miniPath(fn, w, h) {
+      var d = "";
+      for (var i = 0; i <= 60; i++) {
+        var t = i / 60, px = t * w, py = h / 2 - fn(t) * (h * 0.4);
+        d += (i === 0 ? "M" : "L") + px.toFixed(1) + "," + py.toFixed(1) + " ";
+      }
+      return d.trim();
+    }
+    function renderGallery() {
+      var basis = getBasis();
+      el.galleryGrid.innerHTML = "";
+      var items = [];
+      if (basis === "fourier") {
+        [1, 3, 6].forEach(function (k) {
+          items.push({ label: "cos(2π·" + k + "·t)  [Re]", fn: function (t) { return Math.cos(2 * Math.PI * k * t); } });
+        });
+        el.basisNote.textContent = "Fourier: basis คือ e^(iωt) = cos(ωt) + i·sin(ωt) — สำหรับสัญญาณจริง สมมูลกับการใช้ cos/sin เป็น series";
+      } else if (basis === "dct") {
+        [1, 3, 6].forEach(function (k) {
+          items.push({ label: "cos(π/N·(t·N+0.5)·" + k + ")", fn: function (t) { return Math.cos(Math.PI * (t * N + 0.5) * k / N); } });
+        });
+        el.basisNote.textContent = "DCT: cosine basis เหมือน Fourier แต่เงื่อนไขขอบเขตต่างกัน (ไม่ต้องมองสัญญาณเป็นคาบ) — ค่าสัมประสิทธิ์เป็นจำนวนจริงล้วน";
+      } else {
+        items.push({ label: "Haar scaling (ค่าเฉลี่ย)", fn: function (t) { return t < 0.5 ? 1 : 1; } });
+        items.push({ label: "Haar wavelet (ผลต่าง)", fn: function (t) { return t < 0.5 ? 1 : -1; } });
+        items.push({ label: "Mexican Hat (Ricker)", fn: function (t) { var x = (t - 0.5) * 8; return (1 - x * x) * Math.exp(-x * x / 2); } });
+        el.basisNote.textContent = "Wavelet: สาธิตแบบโต้ตอบใช้ Haar (ง่ายสุด, orthogonal) — Mexican Hat เป็นอีกตัวเลือกยอดนิยมของ mother wavelet (รูปทรงเดียวกับ LoG)";
+      }
+      items.forEach(function (item) {
+        var box = document.createElement("div");
+        box.className = "gallery-box";
+        box.innerHTML = '<h5>' + item.label + '</h5><svg class="mini" viewBox="0 0 150 70"><path d="' + miniPath(item.fn, 150, 70) + '" fill="none" stroke="var(--accent)" stroke-width="2" /></svg>';
+        el.galleryGrid.appendChild(box);
+      });
+    }
+
+    // ================= 2D basis gallery (ข้อ 2, ตัวเลือก "แสดง Basis แบบ 2D") =================
+    // separable 2D basis: basis_{u,v}(x,y) — for Fourier this is the genuine 2D plane
+    // wave cos(2π(ux+vy)/M) (NOT a product of two 1D cosines, which would give a
+    // different pattern); DCT and Haar are truly separable products of 1D bases.
+    var GRID2D = 8;
+    function fourierTileValue(u, v, x, y) {
+      return Math.cos(2 * Math.PI * (u * x + v * y) / GRID2D);
+    }
+    function dctTileValue(u, v, x, y) {
+      return Math.cos(Math.PI / GRID2D * (x + 0.5) * u) * Math.cos(Math.PI / GRID2D * (y + 0.5) * v);
+    }
+    function haarSubbandValue(kind, x, y) {
+      var sx = x < GRID2D / 2 ? 1 : -1, sy = y < GRID2D / 2 ? 1 : -1;
+      if (kind === "LL") return 1;
+      if (kind === "LH") return sy;
+      if (kind === "HL") return sx;
+      return sx * sy;
+    }
+    function renderBasisTile(canvas, valueFn) {
+      var ctx = canvas.getContext("2d");
+      var img = ctx.createImageData(GRID2D, GRID2D);
+      for (var y = 0; y < GRID2D; y++) {
+        for (var x = 0; x < GRID2D; x++) {
+          var gray = Math.round((valueFn(x, y) * 0.5 + 0.5) * 255);
+          var idx = (y * GRID2D + x) * 4;
+          img.data[idx] = gray; img.data[idx + 1] = gray; img.data[idx + 2] = gray; img.data[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    function render2DGallery(basis) {
+      el.gallery2DGrid.innerHTML = "";
+      if (basis === "wavelet") {
+        el.gallery2DGrid.style.gridTemplateColumns = "repeat(2, 1fr)";
+        var subs = [
+          { key: "LL", label: "เฉลี่ยรวม (Approx / LL)" },
+          { key: "LH", label: "ขอบแนวนอน (ผลต่างแนวตั้ง) LH" },
+          { key: "HL", label: "ขอบแนวตั้ง (ผลต่างแนวนอน) HL" },
+          { key: "HH", label: "ทแยง (Diagonal) HH" }
+        ];
+        subs.forEach(function (s) {
+          var box = document.createElement("div");
+          box.className = "basis2d-tile";
+          var canvas = document.createElement("canvas");
+          canvas.width = GRID2D; canvas.height = GRID2D;
+          var label = document.createElement("div");
+          label.className = "basis2d-label"; label.textContent = s.label;
+          box.appendChild(canvas); box.appendChild(label);
+          el.gallery2DGrid.appendChild(box);
+          renderBasisTile(canvas, function (x, y) { return haarSubbandValue(s.key, x, y); });
+        });
+        el.basis2DNote.textContent = "Wavelet (Haar) 2D ระดับเดียว: แยกเป็น 4 subband จากผลคูณ scaling/wavelet ตามแนวตั้งและแนวนอน — เห็นชัดว่า basis 2D คือ tensor product ของ basis 1D สองแกน";
+      } else {
+        el.gallery2DGrid.style.gridTemplateColumns = "repeat(" + GRID2D + ", 1fr)";
+        for (var u = 0; u < GRID2D; u++) {
+          for (var v = 0; v < GRID2D; v++) {
+            var canvas = document.createElement("canvas");
+            canvas.width = GRID2D; canvas.height = GRID2D;
+            canvas.className = "basis2d-cell";
+            el.gallery2DGrid.appendChild(canvas);
+            (function (uu, vv, cv) {
+              var fn = basis === "fourier"
+                ? function (x, y) { return fourierTileValue(uu, vv, x, y); }
+                : function (x, y) { return dctTileValue(uu, vv, x, y); };
+              renderBasisTile(cv, fn);
+            })(u, v, canvas);
+          }
+        }
+        el.basis2DNote.textContent = basis === "fourier"
+          ? "Fourier 2D: basis(x,y) = cos(2π(u·x+v·y)/" + GRID2D + ") — แถว = ความถี่แนวตั้ง u, คอลัมน์ = ความถี่แนวนอน v (มุมซ้ายบน = ความถี่ต่ำสุดทั้งคู่)"
+          : "DCT 2D: basis(x,y) = cos(π/" + GRID2D + "·(x+0.5)·u) × cos(π/" + GRID2D + "·(y+0.5)·v) — นี่คือชุด basis 8×8 เดียวกับที่ JPEG ใช้บีบอัดภาพทีละบล็อก";
+      }
+    }
+
+    // ================= coefficient bars =================
+    function computeCoefficients(basis) {
+      if (basis === "fourier") {
+        var d = dft(signal);
+        var half = N / 2;
+        var mags = [];
+        for (var k = 0; k <= half; k++) mags.push(Math.sqrt(d.re[k] * d.re[k] + d.im[k] * d.im[k]));
+        return { kind: "fourier", re: d.re, im: d.im, mags: mags };
+      } else if (basis === "dct") {
+        var X = dct(signal);
+        return { kind: "dct", coeffs: X, mags: X.map(Math.abs) };
+      } else {
+        var hw = haarForward(signal);
+        var flat = flattenHaar(hw);
+        return { kind: "wavelet", flat: flat, mags: flat.map(Math.abs) };
+      }
+    }
+    function renderCoeffBars(mags) {
+      el.coeffBars.innerHTML = "";
+      var maxMag = Math.max.apply(null, mags) || 1;
+      var barW = 560 / mags.length;
+      var frag = document.createDocumentFragment();
+      mags.forEach(function (m, i) {
+        var h = (m / maxMag) * 120;
+        var rect = document.createElementNS(svgNS, "rect");
+        rect.setAttribute("x", (i * barW).toFixed(1));
+        rect.setAttribute("y", (130 - h).toFixed(1));
+        rect.setAttribute("width", Math.max(barW - 1, 0.5).toFixed(1));
+        rect.setAttribute("height", h.toFixed(1));
+        rect.setAttribute("fill", "var(--accent)");
+        frag.appendChild(rect);
+      });
+      el.coeffBars.appendChild(frag);
+      renderCoeffAxisTicks(mags.length);
+    }
+    function renderCoeffAxisTicks(n) {
+      el.coeffAxisTicks.innerHTML = "";
+      var barW = 560 / n;
+      var step = Math.max(1, Math.round(n / 9)); // ~9 tick labels across the axis
+      var frag = document.createDocumentFragment();
+      function addTick(i) {
+        var text = document.createElementNS(svgNS, "text");
+        text.setAttribute("x", (i * barW + barW / 2).toFixed(1));
+        text.setAttribute("y", "142");
+        text.setAttribute("font-size", "8");
+        text.setAttribute("fill", "var(--text-muted)");
+        text.setAttribute("text-anchor", "middle");
+        text.textContent = i;
+        frag.appendChild(text);
+      }
+      for (var i = 0; i < n; i += step) addTick(i);
+      if ((n - 1) % step !== 0) addTick(n - 1);
+      el.coeffAxisTicks.appendChild(frag);
+    }
+
+    // ================= transform equation + fundamental frequency (ข้อ 3) =================
+    function updateCoeffExplain(basis) {
+      if (basis === "fourier") {
+        var f0 = 1 / N, w0 = 2 * Math.PI / N;
+        el.coeffFormula.textContent = "X[k] = Σₙ x[n]·e^(−i2πkn/N)   (k = 0..N/2)";
+        el.fundFreqNote.innerHTML =
+          "ความถี่มูลฐาน f₀ = 1/N = 1/" + N + " ≈ " + f0.toFixed(4) + " รอบ/ตัวอย่าง (ω₀ = 2π/N ≈ " +
+          w0.toFixed(4) + " rad/ตัวอย่าง) — สัมประสิทธิ์ตัวที่ k คือองค์ประกอบที่ความถี่ k·f₀ พอดี";
+        el.coeffAxisNote.textContent = "แกน x ของฮิสโตแกรม = k คือตัวคูณของความถี่มูลฐาน f₀ (ไม่ใช่แค่ index เฉย ๆ)";
+      } else if (basis === "dct") {
+        var f0d = 1 / (2 * N), w0d = Math.PI / N;
+        el.coeffFormula.textContent = "X[k] = Σₙ x[n]·cos(π/N·(n+0.5)·k)   (k = 0..N−1)";
+        el.fundFreqNote.innerHTML =
+          "ความถี่มูลฐาน f₀ = 1/(2N) = 1/" + (2 * N) + " ≈ " + f0d.toFixed(4) + " รอบ/ตัวอย่าง (ω₀ = π/N ≈ " +
+          w0d.toFixed(4) + " rad/ตัวอย่าง) — ครึ่งหนึ่งของ Fourier เพราะ DCT มองสัญญาณเหมือนถูกขยายแบบ symmetric เป็นคาบยาว 2N";
+        el.coeffAxisNote.textContent = "แกน x ของฮิสโตแกรม = k คือตัวคูณของความถี่มูลฐาน f₀ (ความถี่ ≈ k·f₀) เหมือนกับ Fourier";
+      } else {
+        el.coeffFormula.textContent = "avg[i] = (x[2i]+x[2i+1])/√2 , diff[i] = (x[2i]−x[2i+1])/√2   (ทำซ้ำบน avg ไปเรื่อย ๆ)";
+        el.fundFreqNote.innerHTML =
+          "Wavelet ไม่มีความถี่มูลฐานตัวเดียวแบบ Fourier/DCT — แต่ละ level (octave) ครอบคลุมย่านความถี่กว้างเป็น 2 เท่าของ level ถัดไป: " +
+          "level หยาบสุดอยู่ที่ความถี่ต่ำสุด (~0) ส่วน level ละเอียดสุดอยู่ใกล้ความถี่ Nyquist (~π rad/ตัวอย่าง)";
+        el.coeffAxisNote.textContent = "แกน x ของฮิสโตแกรม = ลำดับใน sequence [approx, level หยาบสุด, ..., level ละเอียดสุด] — ไม่ใช่ตัวคูณความถี่เดียวเหมือน Fourier/DCT";
+      }
+    }
+
+    // ================= top-K reconstruction per basis =================
+    function reconstructTopK(basis, coeffData, K) {
+      if (basis === "fourier") {
+        var half = N / 2;
+        var order = [];
+        for (var k = 0; k <= half; k++) order.push(k);
+        order.sort(function (a, b) { return coeffData.mags[b] - coeffData.mags[a]; });
+        var keepFreqs = order.slice(0, Math.max(1, Math.ceil(K / 2)));
+        var keepSet = {}; keepFreqs.forEach(function (k) { keepSet[k] = true; });
+        var re2 = new Array(N).fill(0), im2 = new Array(N).fill(0), nonZero = 0;
+        for (var k2 = 0; k2 <= half; k2++) {
+          if (keepSet[k2]) {
+            re2[k2] = coeffData.re[k2]; im2[k2] = coeffData.im[k2]; nonZero += 2;
+            var mirror = (N - k2) % N;
+            if (mirror !== k2) { re2[mirror] = coeffData.re[mirror]; im2[mirror] = coeffData.im[mirror]; nonZero += 2; }
+          }
+        }
+        return { recon: idft(re2, im2), budget: nonZero };
+      } else if (basis === "dct") {
+        var order2 = coeffData.coeffs.map(function (v, i) { return i; });
+        order2.sort(function (a, b) { return coeffData.mags[b] - coeffData.mags[a]; });
+        var keep2 = order2.slice(0, K);
+        var X2 = new Array(N).fill(0);
+        keep2.forEach(function (i) { X2[i] = coeffData.coeffs[i]; });
+        return { recon: idct(X2), budget: keep2.length };
+      } else {
+        var order3 = coeffData.flat.map(function (v, i) { return i; });
+        order3.sort(function (a, b) { return coeffData.mags[b] - coeffData.mags[a]; });
+        var keep3 = order3.slice(0, K);
+        var flat2 = new Array(N).fill(0);
+        keep3.forEach(function (i) { flat2[i] = coeffData.flat[i]; });
+        var hw2 = unflattenHaar(flat2);
+        return { recon: haarInverse(hw2.approx, hw2.details), budget: keep3.length };
+      }
+    }
+
+    // ================= lowpass + downsample baseline =================
+    function boxcarLPF(x, windowSize) {
+      var out = new Array(N);
+      var half = Math.floor(windowSize / 2);
+      for (var n = 0; n < N; n++) {
+        var sum = 0, cnt = 0;
+        for (var j = -half; j <= half; j++) {
+          var idx = clamp(n + j, 0, N - 1);
+          sum += x[idx]; cnt++;
+        }
+        out[n] = sum / cnt;
+      }
+      return out;
+    }
+    function downsampleUpsample(x, K, useLPF) {
+      var step = N / K;
+      var filtered = useLPF ? boxcarLPF(x, Math.max(1, Math.round(step))) : x;
+      var samplePositions = [], sampleValues = [];
+      for (var i = 0; i < K; i++) {
+        var pos = Math.min(Math.round(i * step), N - 1);
+        samplePositions.push(pos); sampleValues.push(filtered[pos]);
+      }
+      var out = new Array(N);
+      for (var n = 0; n < N; n++) {
+        var j = 0;
+        while (j < samplePositions.length - 1 && samplePositions[j + 1] < n) j++;
+        if (j >= samplePositions.length - 1) { out[n] = sampleValues[samplePositions.length - 1]; continue; }
+        var p0 = samplePositions[j], p1 = samplePositions[j + 1];
+        var t = p1 > p0 ? (n - p0) / (p1 - p0) : 0;
+        out[n] = sampleValues[j] * (1 - t) + sampleValues[j + 1] * t;
+      }
+      return { recon: out, budget: K };
+    }
+
+    // ================= 2D coefficients + top-K + lowpass/downsample baseline =================
+    // (top-K reconstruction verified in Node: RMSE decreases monotonically with K for all
+    // three bases and reaches exactly 0 at full budget K=N*N, same as the 1D version above)
+    function computeCoefficients2D(basis) {
+      if (basis === "fourier") {
+        var d = dft2D(image2D);
+        var mags = new Array(N * N);
+        for (var i = 0; i < N * N; i++) mags[i] = Math.sqrt(d.re[i] * d.re[i] + d.im[i] * d.im[i]);
+        return { kind: "fourier", re: d.re, im: d.im, mags: mags };
+      } else if (basis === "dct") {
+        var X = dct2D(image2D);
+        return { kind: "dct", coeffs: X, mags: X.map(Math.abs) };
+      } else {
+        var H = haar2D(image2D);
+        return { kind: "wavelet", coeffs: H, mags: H.map(Math.abs) };
+      }
+    }
+    function reconstructTopK2D(basis, coeffData, K) {
+      if (basis === "fourier") {
+        var order = [];
+        for (var i = 0; i < N * N; i++) order.push(i);
+        order.sort(function (a, b) { return coeffData.mags[b] - coeffData.mags[a]; });
+        var keep = {}, count = 0;
+        for (var idx = 0; idx < order.length && count < K; idx++) {
+          var p = order[idx];
+          if (keep[p]) continue;
+          var u = p % N, v = Math.floor(p / N);
+          keep[p] = true; count++;
+          var mu = (N - u) % N, mv = (N - v) % N, mp = mv * N + mu;
+          if (mp !== p && !keep[mp]) { keep[mp] = true; count++; }
+        }
+        var re2 = new Array(N * N).fill(0), im2 = new Array(N * N).fill(0);
+        Object.keys(keep).forEach(function (k) { re2[k] = coeffData.re[k]; im2[k] = coeffData.im[k]; });
+        return { recon: idft2D(re2, im2), budget: Object.keys(keep).length };
+      } else if (basis === "dct") {
+        var order2 = coeffData.coeffs.map(function (v, i) { return i; });
+        order2.sort(function (a, b) { return coeffData.mags[b] - coeffData.mags[a]; });
+        var keep2 = order2.slice(0, K);
+        var X2 = new Array(N * N).fill(0);
+        keep2.forEach(function (i) { X2[i] = coeffData.coeffs[i]; });
+        return { recon: idct2D(X2), budget: keep2.length };
+      } else {
+        var order3 = coeffData.coeffs.map(function (v, i) { return i; });
+        order3.sort(function (a, b) { return coeffData.mags[b] - coeffData.mags[a]; });
+        var keep3 = order3.slice(0, K);
+        var H2 = new Array(N * N).fill(0);
+        keep3.forEach(function (i) { H2[i] = coeffData.coeffs[i]; });
+        return { recon: haar2DInverse(H2), budget: keep3.length };
+      }
+    }
+    function boxBlur2D(img, windowSize) {
+      var half = Math.floor(windowSize / 2);
+      var out = new Float64Array(N * N);
+      for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+        var sum = 0, cnt = 0;
+        for (var dy = -half; dy <= half; dy++) for (var dx = -half; dx <= half; dx++) {
+          var xx = clamp(x + dx, 0, N - 1), yy = clamp(y + dy, 0, N - 1);
+          sum += img[yy * N + xx]; cnt++;
+        }
+        out[y * N + x] = sum / cnt;
+      }
+      return out;
+    }
+    function bilinearSample2D(gridVals, gridPos, Kside, qx, qy) {
+      var jx = 0; while (jx < Kside - 1 && gridPos[jx + 1] < qx) jx++;
+      var jy = 0; while (jy < Kside - 1 && gridPos[jy + 1] < qy) jy++;
+      var jx1 = Math.min(jx + 1, Kside - 1), jy1 = Math.min(jy + 1, Kside - 1);
+      var x0 = gridPos[jx], x1 = gridPos[jx1], y0 = gridPos[jy], y1 = gridPos[jy1];
+      var tx = x1 > x0 ? (qx - x0) / (x1 - x0) : 0;
+      var ty = y1 > y0 ? (qy - y0) / (y1 - y0) : 0;
+      function v(ix, iy) { return gridVals[iy * Kside + ix]; }
+      var top = v(jx, jy) * (1 - tx) + v(jx1, jy) * tx;
+      var bot = v(jx, jy1) * (1 - tx) + v(jx1, jy1) * tx;
+      return top * (1 - ty) + bot * ty;
+    }
+    function downsampleUpsample2D(img, K, useLPF) {
+      var Kside = clamp(Math.round(Math.sqrt(K)), 2, N);
+      var step = N / Kside;
+      var filtered = useLPF ? boxBlur2D(img, Math.max(1, Math.round(step))) : img;
+      var gridPos = [];
+      for (var ix = 0; ix < Kside; ix++) gridPos.push(Math.min(Math.round(ix * step), N - 1));
+      var gridVals = [];
+      for (var iy = 0; iy < Kside; iy++) {
+        var py = gridPos[iy];
+        for (var ix2 = 0; ix2 < Kside; ix2++) gridVals.push(filtered[py * N + gridPos[ix2]]);
+      }
+      var out = new Float64Array(N * N);
+      for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+        out[y * N + x] = bilinearSample2D(gridVals, gridPos, Kside, x, y);
+      }
+      return { recon: out, budget: Kside * Kside };
+    }
+
+    // ================= transform equation + fundamental frequency (ข้อ 3, 2D) =================
+    function updateCoeffExplain2D(basis) {
+      if (basis === "fourier") {
+        var f0 = 1 / N;
+        el.coeffFormula2D.textContent = "X[u,v] = ΣₓΣᵧ f(x,y)·e^(−i2π(ux+vy)/N)";
+        el.fundFreqNote2D.innerHTML =
+          "ความถี่มูลฐาน f₀ = 1/N ≈ " + f0.toFixed(4) + " รอบ/พิกเซล ต่อแกน — สัมประสิทธิ์ที่ (u,v) คือความถี่ (u·f₀, v·f₀) ในแนวนอน/แนวตั้งตามลำดับ เหมือน 1D ทุกอย่างแค่มี 2 แกน";
+      } else if (basis === "dct") {
+        var f0d = 1 / (2 * N);
+        el.coeffFormula2D.textContent = "X[u,v] = ΣₓΣᵧ f(x,y)·cos(π/N(x+.5)u)·cos(π/N(y+.5)v)";
+        el.fundFreqNote2D.innerHTML =
+          "ความถี่มูลฐาน f₀ = 1/(2N) ≈ " + f0d.toFixed(4) + " รอบ/พิกเซล ต่อแกน — เท่ากับ DCT 1D แค่ทำ 2 แกนแยกกัน (separable)";
+      } else {
+        el.coeffFormula2D.textContent = "แยกซ้ำในแนวแถวก่อน แล้วแยกซ้ำในแนวคอลัมน์ ด้วยสูตร Haar เดียวกับ 1D";
+        el.fundFreqNote2D.innerHTML =
+          "Wavelet 2D ไม่มีความถี่มูลฐานเดี่ยว ๆ เหมือน Fourier/DCT — แต่ละ level ครอบคลุมย่านความถี่ที่กว้างขึ้นเป็น 2 เท่าในทั้งสองแกน";
+      }
+    }
+
+    // ================= top-level render =================
+    function recompute() {
+      if (!signal) return;
+      el.signalPath.setAttribute("d", pathFor(signal));
+      renderGallery();
+
+      var basis = getBasis();
+      var coeffData = computeCoefficients(basis);
+      renderCoeffBars(coeffData.mags);
+      updateCoeffExplain(basis);
+
+      var K = Number(el.kSlider.value);
+      el.kVal.textContent = K;
+
+      var result = reconstructTopK(basis, coeffData, K);
+      el.reconOrigPath.setAttribute("d", pathFor(signal));
+      el.reconPath.setAttribute("d", pathFor(result.recon));
+      var err = rmse(signal, result.recon);
+      el.reconRmse.textContent = err.toFixed(4);
+      el.reconBudget.textContent = result.budget;
+
+      var useLPF = el.lpfToggle.checked;
+      var downs = downsampleUpsample(signal, K, useLPF);
+      el.downsOrigPath.setAttribute("d", pathFor(signal));
+      el.downsPath.setAttribute("d", pathFor(downs.recon));
+      var errD = rmse(signal, downs.recon);
+
+      el.cmpReconRmse.textContent = err.toFixed(4);
+      el.cmpDownsRmse.textContent = errD.toFixed(4);
+      if (err < errD) { el.winnerTag.textContent = "Top-K ชนะ (error ต่ำกว่า)"; el.winnerTag.className = "winner-tag recon"; }
+      else if (errD < err) { el.winnerTag.textContent = "Downsample ชนะ (error ต่ำกว่า)"; el.winnerTag.className = "winner-tag downs"; }
+      else { el.winnerTag.textContent = "เท่ากัน"; el.winnerTag.className = "winner-tag"; }
+    }
+
+    function recompute2D() {
+      if (!image2D) return;
+      renderGrayCanvas(el.img2D_src, image2D);
+
+      var basis = getBasis();
+      render2DGallery(basis);
+
+      var coeffData = computeCoefficients2D(basis);
+      renderHeatCanvas(el.img2D_heat, coeffData.mags);
+      updateCoeffExplain2D(basis);
+
+      var K = Number(el.kSlider2D.value);
+      el.kVal2D.textContent = K;
+
+      var result = reconstructTopK2D(basis, coeffData, K);
+      renderGrayCanvas(el.img2D_orig, image2D);
+      renderGrayCanvas(el.img2D_recon, result.recon);
+      var err = rmse(image2D, result.recon);
+      el.reconRmse2D.textContent = err.toFixed(3);
+      el.reconBudget2D.textContent = result.budget;
+
+      var useLPF = el.lpfToggle2D.checked;
+      var downs = downsampleUpsample2D(image2D, K, useLPF);
+      renderGrayCanvas(el.img2D_downsOrig, image2D);
+      renderGrayCanvas(el.img2D_downs, downs.recon);
+      var errD = rmse(image2D, downs.recon);
+
+      el.cmpReconRmse2D.textContent = err.toFixed(3);
+      el.cmpDownsRmse2D.textContent = errD.toFixed(3);
+      if (err < errD) { el.winnerTag2D.textContent = "Top-K ชนะ (error ต่ำกว่า)"; el.winnerTag2D.className = "winner-tag recon"; }
+      else if (errD < err) { el.winnerTag2D.textContent = "Downsample ชนะ (error ต่ำกว่า)"; el.winnerTag2D.className = "winner-tag downs"; }
+      else { el.winnerTag2D.textContent = "เท่ากัน"; el.winnerTag2D.className = "winner-tag"; }
+    }
+
+    document.querySelectorAll('input[name="basis"]').forEach(function (r) {
+      r.addEventListener("change", function () {
+        document.querySelectorAll(".radio-chip").forEach(function (c) { c.classList.toggle("checked", c.querySelector("input").checked); });
+        recompute();
+        recompute2D();
+      });
+    });
+    el.kSlider.addEventListener("input", recompute);
+    el.lpfToggle.addEventListener("change", recompute);
+    el.kSlider2D.addEventListener("input", recompute2D);
+    el.lpfToggle2D.addEventListener("change", recompute2D);
+    el.mathToggle.addEventListener("click", function () {
+      var show = el.mathBody.hidden;
+      el.mathBody.hidden = !show;
+      el.mathToggle.setAttribute("aria-expanded", String(show));
+      el.mathToggle.textContent = show ? "ซ่อนสูตร" : "แสดงสูตรคำนวณ";
+    });
+
+    document.querySelectorAll(".radio-chip").forEach(function (c) { c.classList.toggle("checked", c.querySelector("input").checked); });
+    setMode("1d");
+    loadSignal(sparseSignal, el.presetSparse);
+    loadImage2D(sparseImage2D, el.presetSparse2D);
+  })();
+</script>

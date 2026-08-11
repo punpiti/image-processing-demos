@@ -1,0 +1,677 @@
+<title>Harris Corner — Eigenvalue ของ Structure Tensor บอกอะไร</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- Open Graph / Social sharing -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Harris Corner — Eigenvalue ของ Structure Tensor บอกอะไร">
+<meta property="og:description" content="hover บนภาพดู structure tensor, eigenvalue/eigenvector, scatter ของ gradient กับวงรี PCA เปลี่ยนรูปร่างตามพื้นราบ/ขอบ/มุม">
+<meta property="og:url" content="https://urban.cpe.ku.ac.th/image_processing/demos/harris-corner-demo/">
+<meta property="og:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/harris-corner-demo/og.png">
+<meta property="og:image:width" content="1734">
+<meta property="og:image:height" content="907">
+<meta property="og:site_name" content="Image Processing Demos">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Harris Corner — Eigenvalue ของ Structure Tensor บอกอะไร">
+<meta name="twitter:description" content="hover บนภาพดู structure tensor, eigenvalue/eigenvector, scatter ของ gradient กับวงรี PCA เปลี่ยนรูปร่างตามพื้นราบ/ขอบ/มุม">
+<meta name="twitter:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/harris-corner-demo/og.png">
+<style>
+  :root {
+    --bg: #f5f4f1;
+    --surface: #ffffff;
+    --surface-2: #eeece6;
+    --border: #ddd8cf;
+    --text-primary: #241f18;
+    --text-secondary: #574f42;
+    --text-muted: #8a8172;
+    --accent: #a15c00;
+    --accent-ink: #ffffff;
+    --flat: #6b7280;
+    --edge: #2e6fa3;
+    --corner: #c0392b;
+    --shadow: 0 1px 2px rgba(36, 31, 24, 0.06), 0 8px 24px rgba(36, 31, 24, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16130d; --surface: #1e1a13; --surface-2: #27221a; --border: #3a3226;
+      --text-primary: #f2ede2; --text-secondary: #cbc0ac; --text-muted: #948a76;
+      --accent: #e0a24f; --accent-ink: #17120a;
+      --flat: #9199a3; --edge: #6ea3d8; --corner: #e0685a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16130d; --surface: #1e1a13; --surface-2: #27221a; --border: #3a3226;
+    --text-primary: #f2ede2; --text-secondary: #cbc0ac; --text-muted: #948a76;
+    --accent: #e0a24f; --accent-ink: #17120a;
+    --flat: #9199a3; --edge: #6ea3d8; --corner: #e0685a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text-primary);
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .page { max-width: 1180px; margin: 0 auto; padding: 40px 20px 80px; display: flex; flex-direction: column; gap: 26px; }
+  .hero { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow { margin: 0; font: 600 12px/1 -apple-system, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+  h1 { margin: 0; font-family: Charter, "Iowan Old Style", "Noto Serif Thai", Georgia, serif; font-weight: 600; font-size: clamp(26px, 3.6vw, 38px); text-wrap: balance; }
+  .lede { margin: 0; max-width: 74ch; color: var(--text-secondary); font-size: 16px; }
+  section.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+
+  .narrative { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .insight { display: flex; gap: 12px; align-items: flex-start; opacity: 0.28; filter: grayscale(0.4); transition: opacity 0.35s ease, filter 0.35s ease; }
+  .insight.active { opacity: 1; filter: none; }
+  .insight .dot { flex: none; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--border); }
+  .insight.active .dot { background: var(--accent); }
+  .insight p { margin: 0; font-family: Charter, "Iowan Old Style", "Noto Serif Thai", Georgia, serif; font-size: 16px; color: var(--text-primary); }
+  .insight b { font-weight: 700; }
+  .insight .k-accent { color: var(--accent); }
+  .insight .k-flat { color: var(--flat); }
+  .insight .k-edge { color: var(--edge); }
+  .insight .k-corner { color: var(--corner); }
+
+  .section-title { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 700; }
+  .section-note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+  .tiny-label { margin: 0 0 4px; font-size: 11.5px; font-weight: 700; color: var(--text-secondary); }
+
+  .step-panel { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+  .preset-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button.action { font: 600 13px -apple-system, sans-serif; color: var(--text-secondary); background: var(--surface-2); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  button.action:hover { filter: brightness(1.05); }
+  button.action.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 200px; flex: 1; }
+  .field label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+  .slider-field { display: flex; align-items: center; gap: 10px; }
+  input[type="range"] { accent-color: var(--accent); flex: 1; }
+  .slider-val { font: 700 13px/1 ui-monospace, "SF Mono", Consolas, monospace; min-width: 3em; text-align: right; }
+  .filter-controls { display: flex; flex-wrap: wrap; gap: 16px 26px; align-items: flex-end; }
+
+  .canvas-frame { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-2); max-width: 320px; }
+  canvas.img-canvas { display: block; width: 100%; height: auto; cursor: crosshair; image-rendering: pixelated; }
+  .hover-marker {
+    position: absolute; width: 9px; height: 9px; border: 2px solid #fff;
+    box-shadow: 0 0 0 1.5px #000, 0 0 4px rgba(0,0,0,.6); border-radius: 50%;
+    transform: translate(-50%, -50%); pointer-events: none; display: none;
+  }
+  .hover-window {
+    position: absolute; border: 1.5px dashed #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.55); pointer-events: none; display: none;
+  }
+
+  .inspect-layout { display: grid; grid-template-columns: minmax(220px, 320px) 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 720px) { .inspect-layout { grid-template-columns: 1fr; } }
+  .inspect-side { display: flex; flex-direction: column; gap: 14px; }
+  .inspect-empty { font-size: 12.5px; color: var(--text-muted); font-style: italic; margin: 0; }
+
+  .class-badge {
+    display: inline-flex; align-self: flex-start; align-items: center; gap: 8px;
+    padding: 8px 16px; border-radius: 999px; font-size: 15px; font-weight: 700;
+  }
+  .class-badge.flat { background: color-mix(in srgb, var(--flat) 18%, var(--surface)); color: var(--flat); }
+  .class-badge.edge { background: color-mix(in srgb, var(--edge) 18%, var(--surface)); color: var(--edge); }
+  .class-badge.corner { background: color-mix(in srgb, var(--corner) 18%, var(--surface)); color: var(--corner); }
+
+  svg.scatter-svg { width: 100%; max-width: 260px; height: auto; display: block; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+
+  .matrix-eigen-row { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-start; }
+  table.kmatrix { border-collapse: collapse; font: 700 12px ui-monospace, "SF Mono", Consolas, monospace; }
+  table.kmatrix td { width: 64px; height: 34px; text-align: center; border: 1px solid var(--border); background: var(--surface-2); }
+
+  .eigen-values { display: flex; flex-direction: column; gap: 8px; min-width: 180px; }
+  .eigen-bar-row { display: grid; grid-template-columns: 22px 1fr 70px; align-items: center; gap: 8px; }
+  .eigen-bar { height: 12px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; }
+  .eigen-bar-fill { height: 100%; background: var(--accent); transition: width 0.3s ease; }
+  .eigen-bar-row b { font: 700 12.5px ui-monospace, "SF Mono", Consolas, monospace; text-align: right; }
+
+  .compare-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .compare-box { display: flex; flex-direction: column; gap: 6px; }
+  .compare-box h4 { margin: 0; font-size: 12.5px; font-weight: 700; color: var(--text-secondary); }
+
+  .stat-row { font-size: 13px; color: var(--text-secondary); }
+  .stat-row b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+  .math-panel { padding: 18px 24px; }
+  .math-toggle { font: 600 13.5px -apple-system, sans-serif; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; }
+  .math-body { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .formula { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 12.5px; color: var(--text-primary); padding: 10px 12px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border); white-space: pre-wrap; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 480px) {
+    .page { padding: 22px 14px 48px; gap: 18px; }
+    .narrative, .step-panel, .math-panel { padding: 16px 16px; }
+  }
+  @media (min-width: 1050px) {
+    .page {
+      max-width: min(94vw, 1900px);
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      grid-template-areas: "hero hero" "narrative preset" "narrative inspect" "narrative heatmap" "narrative math" "footer footer";
+      gap: 14px 28px;
+      padding: 20px 32px 26px;
+    }
+    .hero { grid-area: hero; }
+    .narrative { grid-area: narrative; position: sticky; top: 18px; align-self: start; max-height: calc(100vh - 36px); overflow-y: auto; }
+    .step-preset { grid-area: preset; padding: 16px 20px; }
+    .step-inspect { grid-area: inspect; padding: 16px 20px; }
+    .step-heatmap { grid-area: heatmap; padding: 16px 20px; }
+    .math-panel { grid-area: math; padding: 14px 20px; }
+    footer { grid-area: footer; }
+  }
+  @media (min-width: 1900px) { .page { grid-template-columns: 420px 1fr; } }
+</style>
+
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">01204483 Image Processing — Topic 06, Corner Detection</p>
+    <h1>Harris Corner — Eigenvalue ของ Structure Tensor บอกอะไร</h1>
+    <p class="lede">
+      เลื่อนหน้าต่างเล็ก ๆ ไปทุกทิศรอบจุดหนึ่ง แล้วดูว่า intensity เปลี่ยนแรงแค่ไหน — ถ้า
+      เปลี่ยนแรงทุกทิศ = <b style="color:var(--corner)">มุม</b>, เปลี่ยนแรงทิศเดียว =
+      <b style="color:var(--edge)">ขอบ</b>, ไม่เปลี่ยนเลย = <b style="color:var(--flat)">พื้นราบ</b> —
+      สร้างจาก eigenvalue ของ structure tensor ซึ่งมีโครงสร้างเดียวกับ covariance matrix ใน PCA พอดี
+    </p>
+  </header>
+
+  <section class="card narrative">
+    <div class="insight active" id="insA">
+      <span class="dot"></span>
+      <p>แนวคิด Harris: เลื่อนหน้าต่างเล็ก ๆ ไปทุกทิศรอบจุด แล้ววัดว่า sum of squared difference เปลี่ยนมากแค่ไหน — <b class="k-corner">มุม</b>คือจุดที่เปลี่ยนแรงไม่ว่าจะเลื่อนไปทิศไหน</p>
+    </div>
+    <div class="insight active" id="insB">
+      <span class="dot"></span>
+      <p>ในทางปฏิบัติ ประมาณการนี้ด้วย <b class="k-accent">Structure Tensor</b> M = Σ [Ix², IxIy; IxIy, Iy²] สร้างจาก gradient (Ix, Iy) ของทุกพิกเซลในหน้าต่าง</p>
+    </div>
+    <div class="insight active" id="insC">
+      <span class="dot"></span>
+      <p>M มีโครงสร้างเดียวกับ <b class="k-accent">covariance matrix ใน PCA</b> พอดี — eigenvector คือแกนหลักที่ gradient กระจายตัว, eigenvalue คือ "ความแปรปรวน" ตามแกนนั้น (ลองดู scatter + วงรี PCA ที่ข้อ 2)</p>
+    </div>
+    <div class="insight active" id="insD">
+      <span class="dot"></span>
+      <p>λ₁,λ₂ ทั้งคู่เล็ก → <b class="k-flat">พื้นราบ</b> (gradient กระจุกที่ 0 ทุกทิศ) · มีทิศเดียวใหญ่ → <b class="k-edge">ขอบ</b> (gradient เรียงเป็นเส้นตรงทิศเดียว) · ทั้งคู่ใหญ่พอกัน → <b class="k-corner">มุม</b> (gradient กระจายหลายทิศ)</p>
+    </div>
+    <div class="insight active" id="insE">
+      <span class="dot"></span>
+      <p>ไม่ต้องคำนวณ eigenvalue ตรง ๆ ก็ได้ — ใช้ Harris response R = det(M) − k·trace(M)² แทน (เร็วกว่า เลี่ยง sqrt) แต่ให้ผลตัดสินใจแบบเดียวกัน: R≈0 พื้นราบ, R≪0 ขอบ, R≫0 มุม</p>
+    </div>
+    <div class="insight active" id="insF">
+      <span class="dot"></span>
+      <p>ลองเอาเมาส์ชี้ตำแหน่งต่าง ๆ บนภาพที่ข้อ 2 (พื้นราบ/ขอบ/มุม) แล้วดู scatter ของ gradient เปลี่ยนรูปร่างตามตำแหน่ง จากนั้นดูแผนที่ผลลัพธ์ทั้งภาพที่ข้อ 3</p>
+    </div>
+  </section>
+
+  <section class="card step-panel step-preset">
+    <p class="section-title">1 · เลือกภาพทดสอบ</p>
+    <div class="preset-row">
+      <button class="action" id="presetSquare">สี่เหลี่ยม</button>
+      <button class="action" id="presetChecker">หมากรุก</button>
+      <button class="action" id="presetShapes">รูปทรงผสม</button>
+    </div>
+    <p class="section-note">ภาพขาวดำ 220×160 พิกเซล</p>
+  </section>
+
+  <section class="card step-panel step-inspect">
+    <p class="section-title">2 · ชี้ตำแหน่งบนภาพ ดู Structure Tensor + PCA ของ Gradient</p>
+    <p class="section-note">เอาเมาส์ไปชี้ตำแหน่งต่าง ๆ บนภาพ (พื้นราบ / ขอบ / มุม) แล้วดูว่าทำไม eigenvalue ถึงตัดสินได้ว่าเป็นอะไร</p>
+    <div class="field">
+      <label for="winRadiusSlider">รัศมีหน้าต่าง (window radius)</label>
+      <div class="slider-field">
+        <input type="range" id="winRadiusSlider" min="2" max="7" step="1" value="4" />
+        <span class="slider-val" id="winRadiusVal">4</span>
+      </div>
+    </div>
+    <div class="inspect-layout">
+      <div class="canvas-frame">
+        <canvas id="srcCanvas" class="img-canvas"></canvas>
+        <div class="hover-window" id="srcWindowBox"></div>
+        <div class="hover-marker" id="srcMarker"></div>
+      </div>
+      <div class="inspect-side">
+        <p class="inspect-empty" id="inspectEmpty">เอาเมาส์ไปชี้บนภาพด้านซ้าย</p>
+        <div id="inspectBody" style="display:none; flex-direction:column; gap:14px;">
+          <span class="class-badge" id="classBadge">—</span>
+          <div>
+            <p class="tiny-label">Gradient vectors (Ix, Iy) ในหน้าต่าง + แกนหลักจาก eigenvector</p>
+            <svg class="scatter-svg" id="scatterSvg" viewBox="0 0 200 200">
+              <line x1="100" y1="6" x2="100" y2="194" stroke="var(--border)" stroke-width="1" />
+              <line x1="6" y1="100" x2="194" y2="100" stroke="var(--border)" stroke-width="1" />
+              <ellipse id="pcaEllipse" cx="100" cy="100" rx="0" ry="0" fill="color-mix(in srgb, var(--accent) 16%, transparent)" stroke="var(--accent)" stroke-width="1.5" />
+              <line id="eigLine1" x1="100" y1="100" x2="100" y2="100" stroke="var(--accent)" stroke-width="2" />
+              <line id="eigLine2" x1="100" y1="100" x2="100" y2="100" stroke="var(--accent)" stroke-width="1.25" stroke-dasharray="3,2" />
+              <g id="gradDots"></g>
+            </svg>
+          </div>
+          <div class="matrix-eigen-row">
+            <div>
+              <p class="tiny-label">Structure Tensor M</p>
+              <table class="kmatrix" id="matrixTable"></table>
+            </div>
+            <div class="eigen-values">
+              <p class="tiny-label">Eigenvalues</p>
+              <div class="eigen-bar-row"><span>λ₁</span><div class="eigen-bar"><div class="eigen-bar-fill" id="l1Fill" style="width:0%"></div></div><b id="l1Val">—</b></div>
+              <div class="eigen-bar-row"><span>λ₂</span><div class="eigen-bar"><div class="eigen-bar-fill" id="l2Fill" style="width:0%"></div></div><b id="l2Val">—</b></div>
+              <p class="section-note">R = det(M) − k·trace(M)² = <b id="rVal">—</b></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card step-panel step-heatmap">
+    <p class="section-title">3 · Harris Response ทั้งภาพ + จุดมุมที่ตรวจพบ</p>
+    <div class="filter-controls">
+      <div class="field">
+        <label for="kSlider">k (ค่าคงที่ความไวของ Harris)</label>
+        <div class="slider-field">
+          <input type="range" id="kSlider" min="0.02" max="0.2" step="0.01" value="0.05" />
+          <span class="slider-val" id="kVal">0.05</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="threshSlider">Threshold ตรวจจับมุม (% ของ R สูงสุด)</label>
+        <div class="slider-field">
+          <input type="range" id="threshSlider" min="1" max="50" step="1" value="10" />
+          <span class="slider-val" id="threshVal">10%</span>
+        </div>
+      </div>
+    </div>
+    <div class="compare-grid">
+      <div class="compare-box">
+        <h4>Harris Response R(x,y)</h4>
+        <div class="canvas-frame"><canvas id="heatCanvas" class="img-canvas"></canvas></div>
+      </div>
+      <div class="compare-box">
+        <h4>จุดมุมที่ตรวจพบ (บนภาพต้นฉบับ)</h4>
+        <div class="canvas-frame"><canvas id="cornersCanvas" class="img-canvas"></canvas></div>
+      </div>
+    </div>
+    <p class="section-note">สีในแผนที่ R: <span style="color:var(--edge)">น้ำเงิน = ขอบ (R ติดลบมาก)</span> · เทา = พื้นราบ (R ≈ 0) · <span style="color:var(--corner)">แดง = มุม (R บวกมาก)</span></p>
+    <p class="stat-row">จำนวนมุมที่ตรวจพบ (หลัง non-max suppression): <b id="cornerCount">—</b></p>
+  </section>
+
+  <section class="card math-panel">
+    <button class="math-toggle" id="mathToggle" aria-expanded="false">แสดงสูตรคำนวณ</button>
+    <div class="math-body" id="mathBody" hidden>
+      <div class="formula">Gradient: Ix, Iy จาก Sobel kernel 3×3</div>
+      <div class="formula">Structure Tensor (หน้าต่างรัศมี r รอบจุด (x,y)):
+  M = Σ [ Ix²    Ix·Iy ]
+      [ Ix·Iy   Iy²   ]   (ผลรวมในหน้าต่าง — เหมือน covariance matrix ที่ไม่ลบค่าเฉลี่ย)</div>
+      <div class="formula">Eigenvalues (สูตรปิดของเมทริกซ์สมมาตร 2×2):
+  λ₁,₂ = (Sxx+Syy)/2 ± √( ((Sxx−Syy)/2)² + Sxy² )   (λ₁ ≥ λ₂)</div>
+      <div class="formula">การตัดสินใจ: λ₁ เล็ก → พื้นราบ | λ₂/λ₁ เล็กมาก → ขอบ (ทิศเดียวเด่น) | ทั้งคู่ใหญ่พอกัน → มุม
+  eigenvector ของ λ₁ = ทิศที่ intensity เปลี่ยนเร็วที่สุด (ตั้งฉากกับขอบ)
+  eigenvector ของ λ₂ = ทิศตามแนวขอบ (intensity แทบไม่เปลี่ยน)</div>
+      <div class="formula">Harris Response: R = det(M) − k·trace(M)² = (λ₁λ₂) − k(λ₁+λ₂)²   (k ≈ 0.04–0.06)</div>
+    </div>
+  </section>
+
+  <footer>
+    ตัวอย่างสมมติเพื่อการสอน — ภาพ 220×160 พิกเซล, หน้าต่างเป็น box window (ไม่ได้ถ่วงน้ำหนักแบบ Gaussian เพื่อความง่าย),
+    ผลลัพธ์ทั้งภาพคำนวณ structure tensor ตรง ๆ ทุกพิกเซล (ไม่ใช้ integral image) แล้วทำ non-max suppression แบบง่าย
+  </footer>
+</div>
+
+<script>
+  (function () {
+    // ================= shared helpers =================
+    function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+    function clampCoord(v, max) { return Math.min(Math.max(v, 0), max - 1); }
+    function fmt(n) { return (Math.round(n * 100) / 100).toString(); }
+
+    var W = 220, H = 160;
+    var SOBEL_GX = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
+    var SOBEL_GY = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
+
+    // ================= gradient + structure tensor math (verified in Node before writing this
+    // file: flat -> lambda1=lambda2=0, R=0; vertical edge -> lambda1 large lambda2~0, R<<0,
+    // eigenvector along gradient direction; corner -> both eigenvalues large, R>>0; M*v = lambda*v
+    // checked to ~1e-6 error) =================
+    function convolveAt(img, w, h, x, y, kernel) {
+      var kh = kernel.length, kw = kernel[0].length, offR = Math.floor((kh - 1) / 2), offC = Math.floor((kw - 1) / 2), sum = 0;
+      for (var i = 0; i < kh; i++) for (var j = 0; j < kw; j++) {
+        var sx = clampCoord(x + (j - offC), w), sy = clampCoord(y + (i - offR), h);
+        sum += img[sy * w + sx] * kernel[i][j];
+      }
+      return sum;
+    }
+    function computeGradients(img, w, h) {
+      var Ix = new Float64Array(w * h), Iy = new Float64Array(w * h);
+      for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+        Ix[y * w + x] = convolveAt(img, w, h, x, y, SOBEL_GX);
+        Iy[y * w + x] = convolveAt(img, w, h, x, y, SOBEL_GY);
+      }
+      return { Ix: Ix, Iy: Iy };
+    }
+    function structureTensorAt(Ix, Iy, w, h, cx, cy, winR) {
+      var Sxx = 0, Syy = 0, Sxy = 0;
+      for (var dy = -winR; dy <= winR; dy++) for (var dx = -winR; dx <= winR; dx++) {
+        var x = clampCoord(cx + dx, w), y = clampCoord(cy + dy, h);
+        var ix = Ix[y * w + x], iy = Iy[y * w + x];
+        Sxx += ix * ix; Syy += iy * iy; Sxy += ix * iy;
+      }
+      return { Sxx: Sxx, Syy: Syy, Sxy: Sxy };
+    }
+    function eigenSym2x2(Sxx, Syy, Sxy) {
+      var tr = Sxx + Syy, det = Sxx * Syy - Sxy * Sxy;
+      var disc = Math.sqrt(Math.max(0, (tr / 2) * (tr / 2) - det));
+      var l1 = tr / 2 + disc, l2 = tr / 2 - disc;
+      function eigvecFor(lam) {
+        if (Math.abs(Sxy) > 1e-9) {
+          var vx = lam - Syy, vy = Sxy, n = Math.hypot(vx, vy) || 1;
+          return [vx / n, vy / n];
+        }
+        return Math.abs(lam - Sxx) < Math.abs(lam - Syy) ? [1, 0] : [0, 1];
+      }
+      return { l1: l1, l2: l2, v1: eigvecFor(l1), v2: eigvecFor(l2) };
+    }
+    function harrisResponse(Sxx, Syy, Sxy, k) {
+      var det = Sxx * Syy - Sxy * Sxy, tr = Sxx + Syy;
+      return det - k * tr * tr;
+    }
+    function classify(l1, l2, flatThresh, ratioThresh) {
+      if (l1 < flatThresh) return "flat";
+      if (l2 / l1 < ratioThresh) return "edge";
+      return "corner";
+    }
+    var FLAT_FRAC = 0.02, RATIO_THRESH = 0.1; // relative to the image's own max lambda1
+
+    // ================= test image presets =================
+    function drawSquare(ctx) {
+      ctx.fillStyle = "#8a8a8a"; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#ececec"; ctx.fillRect(60, 35, 100, 90);
+      ctx.fillStyle = "#2c2c2c"; ctx.fillRect(140, 90, 45, 45);
+    }
+    function drawChecker(ctx) {
+      var cell = 20;
+      for (var y = 0; y < H; y += cell) {
+        for (var x = 0; x < W; x += cell) {
+          var on = ((x / cell + y / cell) % 2) === 0;
+          ctx.fillStyle = on ? "#e6e6e6" : "#2a2a2a";
+          ctx.fillRect(x, y, cell, cell);
+        }
+      }
+    }
+    function drawShapes(ctx) {
+      ctx.fillStyle = "#3a3a3a"; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#dedede"; ctx.beginPath(); ctx.arc(55, 55, 34, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#111111"; ctx.beginPath();
+      ctx.moveTo(110, 130); ctx.lineTo(160, 40); ctx.lineTo(200, 130); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#c8c8c8"; ctx.fillRect(150, 95, 40, 40);
+      ctx.strokeStyle = "#f0f0f0"; ctx.lineWidth = 10;
+      ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(60, 140); ctx.stroke();
+    }
+    function toGray(imageData) {
+      var d = imageData.data, out = new Float64Array(W * H);
+      for (var p = 0; p < W * H; p++) {
+        var o = p * 4;
+        out[p] = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2];
+      }
+      return out;
+    }
+    function setPresetActive(btn) {
+      [el.presetSquare, el.presetChecker, el.presetShapes].forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+    }
+
+    // ================= DOM refs =================
+    var el = {};
+    ["presetSquare", "presetChecker", "presetShapes",
+     "srcCanvas", "srcMarker", "srcWindowBox",
+     "winRadiusSlider", "winRadiusVal",
+     "inspectEmpty", "inspectBody", "classBadge",
+     "scatterSvg", "pcaEllipse", "eigLine1", "eigLine2", "gradDots",
+     "matrixTable", "l1Fill", "l2Fill", "l1Val", "l2Val", "rVal",
+     "kSlider", "kVal", "threshSlider", "threshVal",
+     "heatCanvas", "cornersCanvas", "cornerCount",
+     "mathToggle", "mathBody"
+    ].forEach(function (id) { el[id] = document.getElementById(id); });
+
+    var srcCtx = null, grayData = null, Ix = null, Iy = null;
+    var STensor = null; // {Sxx,Syy,Sxy} full-image maps, cached per (image, winRadius)
+    var globalMaxL1 = 1;
+
+    el.srcCanvas.width = W; el.srcCanvas.height = H;
+    srcCtx = el.srcCanvas.getContext("2d");
+
+    function loadPreset(drawFn, btn) {
+      setPresetActive(btn);
+      srcCtx.clearRect(0, 0, W, H);
+      drawFn(srcCtx);
+      grayData = toGray(srcCtx.getImageData(0, 0, W, H));
+      var g = computeGradients(grayData, W, H);
+      Ix = g.Ix; Iy = g.Iy;
+      recomputeFullTensor();
+      recomputeHeatmap();
+    }
+    el.presetSquare.addEventListener("click", function () { loadPreset(drawSquare, el.presetSquare); });
+    el.presetChecker.addEventListener("click", function () { loadPreset(drawChecker, el.presetChecker); });
+    el.presetShapes.addEventListener("click", function () { loadPreset(drawShapes, el.presetShapes); });
+
+    // ================= full-image structure tensor (cached per window radius) =================
+    function recomputeFullTensor() {
+      var winR = Number(el.winRadiusSlider.value);
+      var Sxx = new Float64Array(W * H), Syy = new Float64Array(W * H), Sxy = new Float64Array(W * H);
+      for (var y = 0; y < H; y++) {
+        for (var x = 0; x < W; x++) {
+          var sxx = 0, syy = 0, sxy = 0;
+          for (var dy = -winR; dy <= winR; dy++) {
+            var yy = clampCoord(y + dy, H);
+            for (var dx = -winR; dx <= winR; dx++) {
+              var xx = clampCoord(x + dx, W);
+              var ix = Ix[yy * W + xx], iy = Iy[yy * W + xx];
+              sxx += ix * ix; syy += iy * iy; sxy += ix * iy;
+            }
+          }
+          var idx = y * W + x;
+          Sxx[idx] = sxx; Syy[idx] = syy; Sxy[idx] = sxy;
+        }
+      }
+      STensor = { Sxx: Sxx, Syy: Syy, Sxy: Sxy };
+      var maxL1 = 0;
+      for (var i = 0; i < W * H; i++) {
+        var eig = eigenSym2x2(Sxx[i], Syy[i], Sxy[i]);
+        if (eig.l1 > maxL1) maxL1 = eig.l1;
+      }
+      globalMaxL1 = maxL1 || 1;
+    }
+
+    // ================= step 3: Harris response heatmap + corner detection =================
+    function renderHeatmap(canvas, R, w, h) {
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext("2d");
+      var img = ctx.createImageData(w, h);
+      var maxAbs = 0;
+      for (var i = 0; i < w * h; i++) maxAbs = Math.max(maxAbs, Math.abs(R[i]));
+      maxAbs = maxAbs || 1;
+      var base = 232;
+      for (var i2 = 0; i2 < w * h; i2++) {
+        var t = R[i2] / maxAbs, r, g, b;
+        if (t >= 0) {
+          var tt = Math.pow(t, 0.6);
+          r = base; g = Math.round(base * (1 - tt)); b = Math.round(base * (1 - tt));
+        } else {
+          var ts = Math.pow(-t, 0.6);
+          r = Math.round(base * (1 - ts)); g = Math.round(base * (1 - ts)); b = base;
+        }
+        var o = i2 * 4;
+        img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    function detectCorners(R, w, h, threshFrac, nmsRadius) {
+      var maxR = 0;
+      for (var i = 0; i < w * h; i++) if (R[i] > maxR) maxR = R[i];
+      var thresh = maxR * threshFrac;
+      var pts = [];
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          var v = R[y * w + x];
+          if (v < thresh || v <= 0) continue;
+          var isMax = true;
+          for (var dy = -nmsRadius; dy <= nmsRadius && isMax; dy++) {
+            for (var dx = -nmsRadius; dx <= nmsRadius; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              var xx = clampCoord(x + dx, w), yy = clampCoord(y + dy, h);
+              if (R[yy * w + xx] > v) { isMax = false; break; }
+            }
+          }
+          if (isMax) pts.push({ x: x, y: y });
+        }
+      }
+      return pts;
+    }
+    function renderCornersOverlay(canvas, pts) {
+      canvas.width = W; canvas.height = H;
+      var ctx = canvas.getContext("2d");
+      ctx.drawImage(el.srcCanvas, 0, 0);
+      ctx.strokeStyle = "#ff3b30"; ctx.fillStyle = "rgba(255,59,48,0.35)"; ctx.lineWidth = 1.5;
+      pts.forEach(function (p) {
+        ctx.beginPath(); ctx.arc(p.x + 0.5, p.y + 0.5, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      });
+    }
+    function recomputeHeatmap() {
+      if (!STensor) return;
+      var k = Number(el.kSlider.value);
+      var threshFrac = Number(el.threshSlider.value) / 100;
+      var R = new Float64Array(W * H);
+      for (var i = 0; i < W * H; i++) {
+        R[i] = harrisResponse(STensor.Sxx[i], STensor.Syy[i], STensor.Sxy[i], k);
+      }
+      renderHeatmap(el.heatCanvas, R, W, H);
+      var pts = detectCorners(R, W, H, threshFrac, 5);
+      renderCornersOverlay(el.cornersCanvas, pts);
+      el.cornerCount.textContent = pts.length;
+    }
+
+    // ================= step 2: hover inspector (gradient scatter + PCA ellipse) =================
+    var svgNS = "http://www.w3.org/2000/svg";
+    function updateInspector(cx, cy) {
+      var winR = Number(el.winRadiusSlider.value);
+      var S = structureTensorAt(Ix, Iy, W, H, cx, cy, winR);
+      var eig = eigenSym2x2(S.Sxx, S.Syy, S.Sxy);
+      var k = Number(el.kSlider.value);
+      var R = harrisResponse(S.Sxx, S.Syy, S.Sxy, k);
+      var cls = classify(eig.l1, eig.l2, globalMaxL1 * FLAT_FRAC, RATIO_THRESH);
+
+      el.inspectEmpty.style.display = "none";
+      el.inspectBody.style.display = "flex";
+
+      el.classBadge.className = "class-badge " + cls;
+      el.classBadge.textContent = cls === "flat" ? "พื้นราบ (Flat)" : cls === "edge" ? "ขอบ (Edge)" : "มุม (Corner)";
+
+      // matrix table
+      el.matrixTable.innerHTML =
+        "<tr><td>" + fmt(S.Sxx) + "</td><td>" + fmt(S.Sxy) + "</td></tr>" +
+        "<tr><td>" + fmt(S.Sxy) + "</td><td>" + fmt(S.Syy) + "</td></tr>";
+
+      // eigenvalue bars (relative to the larger of the two, so the bars are always comparable)
+      var maxL = Math.max(eig.l1, 1);
+      el.l1Fill.style.width = Math.min(100, (eig.l1 / maxL) * 100) + "%";
+      el.l2Fill.style.width = Math.min(100, (eig.l2 / maxL) * 100) + "%";
+      el.l1Val.textContent = fmt(eig.l1);
+      el.l2Val.textContent = fmt(eig.l2);
+      el.rVal.textContent = fmt(R);
+
+      // ---- gradient scatter + PCA ellipse ----
+      // collect raw (Ix,Iy) samples from the window for the dot cloud
+      var pts = [];
+      for (var dy = -winR; dy <= winR; dy++) {
+        for (var dx = -winR; dx <= winR; dx++) {
+          var x = clampCoord(cx + dx, W), y = clampCoord(cy + dy, H);
+          pts.push([Ix[y * W + x], Iy[y * W + x]]);
+        }
+      }
+      var maxAbsGrad = 1;
+      pts.forEach(function (p) { maxAbsGrad = Math.max(maxAbsGrad, Math.abs(p[0]), Math.abs(p[1])); });
+      var s = 85 / maxAbsGrad; // px per gradient-intensity unit, fit to the 200x200 viewBox
+
+      el.gradDots.innerHTML = "";
+      var frag = document.createDocumentFragment();
+      pts.forEach(function (p) {
+        var c = document.createElementNS(svgNS, "circle");
+        c.setAttribute("cx", (100 + p[0] * s).toFixed(1));
+        c.setAttribute("cy", (100 + p[1] * s).toFixed(1));
+        c.setAttribute("r", "2");
+        c.setAttribute("fill", "var(--accent)");
+        c.setAttribute("opacity", "0.55");
+        frag.appendChild(c);
+      });
+      el.gradDots.appendChild(frag);
+
+      // PCA ellipse: semi-axes = sqrt(eigenvalue of the PER-PIXEL-averaged tensor), which puts
+      // the ellipse radius on the same "gradient intensity" scale as the raw dots above —
+      // this is the standard "1-sigma" PCA ellipse of the (uncentered) gradient distribution.
+      var nWin = pts.length;
+      var semiMajor = Math.sqrt(eig.l1 / nWin) * s;
+      var semiMinor = Math.sqrt(eig.l2 / nWin) * s;
+      var angleDeg = Math.atan2(eig.v1[1], eig.v1[0]) * 180 / Math.PI;
+      el.pcaEllipse.setAttribute("rx", semiMajor.toFixed(1));
+      el.pcaEllipse.setAttribute("ry", semiMinor.toFixed(1));
+      el.pcaEllipse.setAttribute("transform", "rotate(" + angleDeg.toFixed(1) + " 100 100)");
+
+      el.eigLine1.setAttribute("x1", 100); el.eigLine1.setAttribute("y1", 100);
+      el.eigLine1.setAttribute("x2", (100 + eig.v1[0] * semiMajor).toFixed(1));
+      el.eigLine1.setAttribute("y2", (100 + eig.v1[1] * semiMajor).toFixed(1));
+      el.eigLine2.setAttribute("x1", 100); el.eigLine2.setAttribute("y1", 100);
+      el.eigLine2.setAttribute("x2", (100 + eig.v2[0] * semiMinor).toFixed(1));
+      el.eigLine2.setAttribute("y2", (100 + eig.v2[1] * semiMinor).toFixed(1));
+
+      // window box + marker over the source image
+      var boxLeft = (cx - winR) / W * 100, boxTop = (cy - winR) / H * 100;
+      var boxW = (2 * winR + 1) / W * 100, boxH = (2 * winR + 1) / H * 100;
+      el.srcWindowBox.style.left = boxLeft + "%"; el.srcWindowBox.style.top = boxTop + "%";
+      el.srcWindowBox.style.width = boxW + "%"; el.srcWindowBox.style.height = boxH + "%";
+      el.srcWindowBox.style.display = "block";
+      el.srcMarker.style.left = ((cx + 0.5) / W * 100) + "%";
+      el.srcMarker.style.top = ((cy + 0.5) / H * 100) + "%";
+      el.srcMarker.style.display = "block";
+
+      lastHover = { x: cx, y: cy };
+    }
+    var lastHover = null;
+    el.srcCanvas.addEventListener("mousemove", function (evt) {
+      var rect = el.srcCanvas.getBoundingClientRect();
+      var cx = clampCoord(Math.floor((evt.clientX - rect.left) / rect.width * W), W);
+      var cy = clampCoord(Math.floor((evt.clientY - rect.top) / rect.height * H), H);
+      updateInspector(cx, cy);
+    });
+    el.srcCanvas.addEventListener("mouseleave", function () {
+      el.srcMarker.style.display = "none";
+      el.srcWindowBox.style.display = "none";
+    });
+
+    // ================= events =================
+    el.winRadiusSlider.addEventListener("input", function () {
+      el.winRadiusVal.textContent = el.winRadiusSlider.value;
+    });
+    el.winRadiusSlider.addEventListener("change", function () {
+      recomputeFullTensor();
+      recomputeHeatmap();
+      if (lastHover) updateInspector(lastHover.x, lastHover.y);
+    });
+    el.kSlider.addEventListener("input", function () {
+      el.kVal.textContent = Number(el.kSlider.value).toFixed(2);
+      recomputeHeatmap();
+      if (lastHover) updateInspector(lastHover.x, lastHover.y);
+    });
+    el.threshSlider.addEventListener("input", function () {
+      el.threshVal.textContent = el.threshSlider.value + "%";
+      recomputeHeatmap();
+    });
+    el.mathToggle.addEventListener("click", function () {
+      var show = el.mathBody.hidden;
+      el.mathBody.hidden = !show;
+      el.mathToggle.setAttribute("aria-expanded", String(show));
+      el.mathToggle.textContent = show ? "ซ่อนสูตร" : "แสดงสูตรคำนวณ";
+    });
+
+    // ================= init =================
+    loadPreset(drawSquare, el.presetSquare);
+  })();
+</script>

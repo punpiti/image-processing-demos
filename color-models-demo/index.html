@@ -1,0 +1,664 @@
+<title>สี 6 โมเดล — RGB, HSV, HSL, XYZ, YCrCb, CMYK</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- Open Graph / Social sharing -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="สี 6 โมเดล — RGB, HSV, HSL, XYZ, YCrCb, CMYK">
+<meta property="og:description" content="hover สีบนรูป แล้วดูตำแหน่งเดียวกันปรากฏพร้อมกันในทั้ง 6 โมเดล ลากค่าจากโมเดลไหนก็กำหนดสีเองได้">
+<meta property="og:url" content="https://urban.cpe.ku.ac.th/image_processing/demos/color-models-demo/">
+<meta property="og:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/color-models-demo/og.png">
+<meta property="og:image:width" content="1731">
+<meta property="og:image:height" content="909">
+<meta property="og:site_name" content="Image Processing Demos">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="สี 6 โมเดล — RGB, HSV, HSL, XYZ, YCrCb, CMYK">
+<meta name="twitter:description" content="hover สีบนรูป แล้วดูตำแหน่งเดียวกันปรากฏพร้อมกันในทั้ง 6 โมเดล ลากค่าจากโมเดลไหนก็กำหนดสีเองได้">
+<meta name="twitter:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/color-models-demo/og.png">
+<style>
+  :root {
+    --bg: #f4f4f6;
+    --surface: #ffffff;
+    --surface-2: #ececef;
+    --border: #dcdce1;
+    --text-primary: #201f26;
+    --text-secondary: #52505c;
+    --text-muted: #86838f;
+    --accent: #4a55b0;
+    --accent-ink: #ffffff;
+    --shadow: 0 1px 2px rgba(32,31,38,.06), 0 8px 24px rgba(32,31,38,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141319; --surface: #1c1a22; --surface-2: #262430; --border: #38353f;
+      --text-primary: #eeecf2; --text-secondary: #c3bfcc; --text-muted: #86838f;
+      --accent: #8b93e0; --accent-ink: #131220;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141319; --surface: #1c1a22; --surface-2: #262430; --border: #38353f;
+    --text-primary: #eeecf2; --text-secondary: #c3bfcc; --text-muted: #86838f;
+    --accent: #8b93e0; --accent-ink: #131220;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text-primary); font-family: -apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif; line-height: 1.55; }
+  .page { max-width: 1160px; margin: 0 auto; padding: 40px 20px 80px; display: flex; flex-direction: column; gap: 26px; }
+  .hero { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow { margin: 0; font: 600 12px/1 -apple-system,sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  h1 { margin: 0; font-family: Charter,"Iowan Old Style","Noto Serif Thai",Georgia,serif; font-weight: 600; font-size: clamp(26px,3.6vw,38px); text-wrap: balance; }
+  .lede { margin: 0; max-width: 70ch; color: var(--text-secondary); font-size: 16px; }
+  section.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+
+  .narrative { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .insight { display: flex; gap: 12px; align-items: flex-start; opacity: .28; filter: grayscale(.4); transition: opacity .35s ease, filter .35s ease; }
+  .insight.active { opacity: 1; filter: none; }
+  .insight .dot { flex: none; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--border); }
+  .insight.active .dot { background: var(--accent); }
+  .insight p { margin: 0; font-family: Charter,"Iowan Old Style","Noto Serif Thai",Georgia,serif; font-size: 16px; }
+  .insight b { font-weight: 700; }
+  .insight .k-accent { color: var(--accent); }
+
+  .section-title { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; }
+  .section-note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+
+  .step-panel { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .preset-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button.action { font: 600 13px -apple-system,sans-serif; color: var(--text-secondary); background: var(--surface-2); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  button.action.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+  input[type="file"] { font-size: 12.5px; color: var(--text-secondary); }
+
+  .source-layout { display: grid; grid-template-columns: minmax(200px, 360px) 220px; gap: 20px; align-items: start; }
+  @media (max-width: 720px) { .source-layout { grid-template-columns: 1fr; } }
+  .canvas-frame { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+  canvas#srcCanvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+  .hover-marker { position: absolute; width: 10px; height: 10px; border: 2px solid #fff; box-shadow: 0 0 0 1.5px #000, 0 0 4px rgba(0,0,0,.6); border-radius: 50%; transform: translate(-50%,-50%); pointer-events: none; display: none; }
+  .picked-swatch { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .picked-swatch .swatch { width: 100%; aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--border); }
+  .picked-swatch code { font: 700 12px ui-monospace,"SF Mono",Consolas,monospace; color: var(--text-secondary); }
+
+  .model-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .model-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-2); }
+  .model-card h3 { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+  .model-card .model-sub { font-size: 11px; color: var(--text-muted); margin-top: -6px; }
+  .diagram-wrap { display: flex; justify-content: center; }
+  canvas.diagram { border-radius: 8px; border: 1px solid var(--border); background: var(--surface); }
+  .slider-rows { display: flex; flex-direction: column; gap: 8px; }
+  .slider-row { display: grid; grid-template-columns: 34px 1fr 52px; align-items: center; gap: 8px; }
+  .slider-row label { font: 700 11.5px ui-monospace,"SF Mono",Consolas,monospace; color: var(--text-secondary); }
+  input[type="range"] { accent-color: var(--accent); width: 100%; }
+  .slider-row .val { font: 700 12px ui-monospace,"SF Mono",Consolas,monospace; text-align: right; color: var(--text-primary); }
+  .bar-row { display: grid; grid-template-columns: 20px 1fr 40px; align-items: center; gap: 8px; }
+  .bar-track { height: 10px; border-radius: 5px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
+  .bar-fill { height: 100%; }
+
+  .math-panel { padding: 18px 24px; }
+  .math-toggle { font: 600 13.5px -apple-system,sans-serif; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; }
+  .math-body { margin-top: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .math-body .formula { font-family: ui-monospace,"SF Mono",Consolas,monospace; font-size: 12.5px; color: var(--text-primary); padding: 10px 12px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border); white-space: pre-wrap; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 480px) {
+    .page { padding: 22px 14px 48px; gap: 18px; }
+    .narrative, .step-panel, .math-panel { padding: 16px 16px; }
+  }
+  @media (min-width: 1050px) {
+    .page {
+      max-width: min(94vw, 1900px);
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      grid-template-areas: "hero hero" "narrative source" "narrative models" "narrative math" "footer footer";
+      gap: 14px 28px;
+      padding: 20px 32px 26px;
+    }
+    .hero { grid-area: hero; }
+    .narrative { grid-area: narrative; position: sticky; top: 18px; align-self: start; max-height: calc(100vh - 36px); overflow-y: auto; }
+    .step-source { grid-area: source; padding: 16px 20px; }
+    .step-models { grid-area: models; padding: 16px 20px; }
+    .math-panel { grid-area: math; padding: 14px 20px; }
+    footer { grid-area: footer; }
+  }
+  @media (min-width: 1900px) { .page { grid-template-columns: 400px 1fr; } }
+</style>
+
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">01204483 Image Processing — Topic 04, Color Processing</p>
+    <h1>สี 6 โมเดล — RGB, HSV, HSL, XYZ, YCrCb, CMYK</h1>
+    <p class="lede">
+      เลือกรูป แล้วเอาเมาส์ชี้จุดสีบนรูป — ตำแหน่งของสีเดียวกันนั้นจะปรากฏพร้อม
+      กันในไดอะแกรมทั้ง 6 โมเดล นอกจากดูอย่างเดียว ยังลากค่าในโมเดลไหนก็ได้เพื่อ
+      "ตั้งสี" เอง แล้วดูตำแหน่งเดียวกันขยับพร้อมกันในทุกโมเดลที่เหลือ
+    </p>
+  </header>
+
+  <section class="card narrative">
+    <div class="insight active" id="insA">
+      <span class="dot"></span>
+      <p>สีหนึ่งจุดคือพิกัดเดียวกันที่ถูก "แปลภาษา" เป็นหลายระบบพร้อมกัน — เปลี่ยนระบบไม่ได้เปลี่ยนสี เปลี่ยนแค่วิธีอธิบายตำแหน่งของมัน</p>
+    </div>
+    <div class="insight active" id="insB">
+      <span class="dot"></span>
+      <p><b class="k-accent">RGB</b> คือลูกบาศก์เติมแสง (additive) — <b class="k-accent">CMYK</b> คือด้านตรงข้าม (subtractive) ใช้กับหมึกพิมพ์ ไม่ใช่แสง</p>
+    </div>
+    <div class="insight active" id="insC">
+      <span class="dot"></span>
+      <p><b class="k-accent">HSV/HSL</b> แยก "เนื้อสี" (Hue มุมบนวงล้อ) ออกจาก "ความอิ่มตัว/ความสว่าง" — ใกล้เคียงวิธีที่คนอธิบายสีในชีวิตจริงมากกว่า RGB</p>
+    </div>
+    <div class="insight active" id="insD">
+      <span class="dot"></span>
+      <p><b class="k-accent">YCrCb</b> แยกความสว่าง (Y) ออกจากสี (Cr,Cb) — เป็นเหตุผลที่ทำให้บีบอัดวิดีโอ/JPEG ทิ้งรายละเอียดสีได้มากกว่าความสว่างโดยตาแทบไม่รู้สึก</p>
+    </div>
+    <div class="insight active" id="insE">
+      <span class="dot"></span>
+      <p><b class="k-accent">XYZ</b> คือระบบอ้างอิงที่สร้างจากการมองเห็นของมนุษย์ล้วน ๆ ไม่ผูกกับอุปกรณ์ใด — แผนภาพ CIE xy ด้านล่างคือค่าประมาณเพื่อการสอน ไม่ใช่ตำแหน่งที่แม่นยำระดับมาตรฐาน</p>
+    </div>
+  </section>
+
+  <section class="card step-panel step-source">
+    <p class="section-title">1 · เลือกรูปภาพ</p>
+    <div class="preset-row">
+      <button class="action" id="presetSpectrum">แถบสีรุ้ง (Spectrum)</button>
+      <button class="action" id="presetPalette">จานสี (Palette)</button>
+      <button class="action" id="presetPhoto">ภาพหลายสี (Shapes)</button>
+      <input type="file" id="fileInput" accept="image/*" />
+    </div>
+    <div class="source-layout">
+      <div class="canvas-frame">
+        <canvas id="srcCanvas"></canvas>
+        <div class="hover-marker" id="srcMarker"></div>
+      </div>
+      <div class="picked-swatch">
+        <div class="swatch" id="pickedSwatch"></div>
+        <code id="pickedRgbText">RGB(0,0,0)</code>
+        <p class="section-note" style="text-align:center">เอาเมาส์ชี้บนรูป หรือลากค่าในโมเดลด้านล่างเพื่อกำหนดสีเอง</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card step-panel step-models">
+    <p class="section-title">2 · โมเดลสี — hover บนรูป หรือลากตัวเลขด้านล่างของโมเดลไหนก็ได้</p>
+    <div class="model-grid" id="modelGrid"></div>
+  </section>
+
+  <section class="card math-panel">
+    <button class="math-toggle" id="mathToggle" aria-expanded="false">แสดงสูตรแปลงสี</button>
+    <div class="math-body" id="mathBody" hidden>
+      <div class="formula">RGB → HSV/HSL: หา max,min,delta ของ (r,g,b) แล้วคำนวณ Hue จากว่าช่องใด max, Value=max, Lightness=(max+min)/2</div>
+      <div class="formula">RGB → CMYK: K=1−max(r,g,b); C=(1−r−K)/(1−K); M=(1−g−K)/(1−K); Y=(1−b−K)/(1−K)</div>
+      <div class="formula">RGB → XYZ (sRGB, D65): gamma-expand แต่ละช่อง แล้วคูณเมทริกซ์ 3×3 มาตรฐาน sRGB→XYZ; chromaticity x=X/(X+Y+Z), y=Y/(X+Y+Z)</div>
+      <div class="formula">RGB → YCrCb: Y=0.299R+0.587G+0.114B; Cr=128+0.713(R−Y); Cb=128+0.564(B−Y)</div>
+    </div>
+  </section>
+
+  <footer>
+    ตัวเลขและไดอะแกรมสร้างจากสูตรแปลงสีมาตรฐาน (sRGB/D65 สำหรับ XYZ, BT.601-style สำหรับ YCrCb) เพื่อการสอน — แผนภาพ CIE xy chromaticity เป็นค่าประมาณของ spectral locus จริง
+  </footer>
+</div>
+
+<script>
+  (function () {
+    // ================= color math (verified against known references) =================
+    function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+    function round(v) { return Math.round(v); }
+
+    function rgb2hsv(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      var max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min, h;
+      if (d === 0) h = 0;
+      else if (max === r) h = 60 * (((g - b) / d) % 6);
+      else if (max === g) h = 60 * ((b - r) / d + 2);
+      else h = 60 * ((r - g) / d + 4);
+      if (h < 0) h += 360;
+      return { h: h, s: max === 0 ? 0 : d / max, v: max };
+    }
+    function hsv2rgb(h, s, v) {
+      var c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c, r, g, b;
+      if (h < 60) { r = c; g = x; b = 0; } else if (h < 120) { r = x; g = c; b = 0; }
+      else if (h < 180) { r = 0; g = c; b = x; } else if (h < 240) { r = 0; g = x; b = c; }
+      else if (h < 300) { r = x; g = 0; b = c; } else { r = c; g = 0; b = x; }
+      return { r: round((r + m) * 255), g: round((g + m) * 255), b: round((b + m) * 255) };
+    }
+    function rgb2hsl(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      var max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min, l = (max + min) / 2, h, s;
+      if (d === 0) { h = 0; s = 0; }
+      else {
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === r) h = 60 * (((g - b) / d) % 6);
+        else if (max === g) h = 60 * ((b - r) / d + 2);
+        else h = 60 * ((r - g) / d + 4);
+        if (h < 0) h += 360;
+      }
+      return { h: h, s: s, l: l };
+    }
+    function hsl2rgb(h, s, l) {
+      var c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2, r, g, b;
+      if (h < 60) { r = c; g = x; b = 0; } else if (h < 120) { r = x; g = c; b = 0; }
+      else if (h < 180) { r = 0; g = c; b = x; } else if (h < 240) { r = 0; g = x; b = c; }
+      else if (h < 300) { r = x; g = 0; b = c; } else { r = c; g = 0; b = x; }
+      return { r: round((r + m) * 255), g: round((g + m) * 255), b: round((b + m) * 255) };
+    }
+    function rgb2cmyk(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      var k = 1 - Math.max(r, g, b);
+      if (k >= 1) return { c: 0, m: 0, y: 0, k: 1 };
+      return { c: (1 - r - k) / (1 - k), m: (1 - g - k) / (1 - k), y: (1 - b - k) / (1 - k), k: k };
+    }
+    function cmyk2rgb(c, m, y, k) {
+      return { r: round(255 * (1 - c) * (1 - k)), g: round(255 * (1 - m) * (1 - k)), b: round(255 * (1 - y) * (1 - k)) };
+    }
+    function rgb2ycrcb(r, g, b) {
+      var Y = 0.299 * r + 0.587 * g + 0.114 * b;
+      return { y: Y, cr: (r - Y) * 0.713 + 128, cb: (b - Y) * 0.564 + 128 };
+    }
+    function ycrcb2rgb(Y, Cr, Cb) {
+      var r = Y + 1.403 * (Cr - 128), g = Y - 0.714 * (Cr - 128) - 0.344 * (Cb - 128), b = Y + 1.773 * (Cb - 128);
+      return { r: round(clamp(r, 0, 255)), g: round(clamp(g, 0, 255)), b: round(clamp(b, 0, 255)) };
+    }
+    function srgbToLinear(c) { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+    function linearToSrgb(c) { var v = c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(Math.max(c, 0), 1 / 2.4) - 0.055; return clamp(round(v * 255), 0, 255); }
+    function rgb2xyz(r, g, b) {
+      var R = srgbToLinear(r), G = srgbToLinear(g), B = srgbToLinear(b);
+      return {
+        X: 0.4124564 * R + 0.3575761 * G + 0.1804375 * B,
+        Y: 0.2126729 * R + 0.7151522 * G + 0.0721750 * B,
+        Z: 0.0193339 * R + 0.1191920 * G + 0.9503041 * B
+      };
+    }
+    function xyzToLinearRgb(X, Y, Z) {
+      // unclamped — needed to test sRGB-gamut membership before display clamping hides it
+      return {
+        R: 3.2404542 * X - 1.5371385 * Y - 0.4985314 * Z,
+        G: -0.9692660 * X + 1.8760108 * Y + 0.0415560 * Z,
+        B: 0.0556434 * X - 0.2040259 * Y + 1.0572252 * Z
+      };
+    }
+    function xyz2rgb(X, Y, Z) {
+      var lin = xyzToLinearRgb(X, Y, Z);
+      return { r: linearToSrgb(lin.R), g: linearToSrgb(lin.G), b: linearToSrgb(lin.B) };
+    }
+    function xyzToChroma(X, Y, Z) { var s = X + Y + Z; if (s <= 1e-9) return { x: 0.3127, y: 0.3290 }; return { x: X / s, y: Y / s }; }
+    function chromaToXYZ(x, y, Yl) { if (y <= 1e-6) return { X: 0, Y: 0, Z: 0 }; return { X: (Yl / y) * x, Y: Yl, Z: (Yl / y) * (1 - x - y) }; }
+
+    // approximate CIE 1931 xy spectral locus (teaching approximation)
+    var CIE_LOCUS = [
+      [0.1741,0.0050],[0.1738,0.0049],[0.1733,0.0048],[0.1726,0.0048],[0.1714,0.0051],
+      [0.1689,0.0069],[0.1644,0.0109],[0.1566,0.0177],[0.1440,0.0297],[0.1241,0.0578],
+      [0.0913,0.1327],[0.0454,0.2950],[0.0082,0.5384],[0.0139,0.7502],[0.0743,0.8338],
+      [0.1547,0.8059],[0.2296,0.7543],[0.3016,0.6923],[0.3731,0.6245],[0.4441,0.5547],
+      [0.5125,0.4866],[0.5752,0.4242],[0.6270,0.3725],[0.6658,0.3340],[0.6915,0.3083],
+      [0.7079,0.2920],[0.7190,0.2809],[0.7260,0.2740],[0.7300,0.2700],[0.7334,0.2666],
+      [0.7346,0.2654],[0.7347,0.2653]
+    ];
+
+    function isoProjectCube(r01, g01, b01) {
+      var depthScale = 0.5, ang = Math.PI / 6;
+      return { x: r01 + b01 * depthScale * Math.cos(ang), y: -g01 - b01 * depthScale * Math.sin(ang) };
+    }
+
+    // ================= state =================
+    var SRC_W = 260, SRC_H = 170;
+    var srcCtx;
+    var canonical = { r: 220, g: 60, b: 90 };
+
+    var el = {};
+    ["presetSpectrum", "presetPalette", "presetPhoto", "fileInput", "srcCanvas", "srcMarker",
+     "pickedSwatch", "pickedRgbText", "modelGrid", "mathToggle", "mathBody"
+    ].forEach(function (id) { el[id] = document.getElementById(id); });
+
+    // ================= source image presets =================
+    function drawSpectrum(ctx) {
+      for (var x = 0; x < SRC_W; x++) {
+        var h = x / SRC_W * 360;
+        var c = hsv2rgb(h, 1, 1);
+        ctx.fillStyle = "rgb(" + c.r + "," + c.g + "," + c.b + ")";
+        ctx.fillRect(x, 0, 1, SRC_H * 0.6);
+      }
+      for (var x2 = 0; x2 < SRC_W; x2++) {
+        var v = 1 - (x2 / SRC_W);
+        var c2 = hsv2rgb(210, 0.8, v);
+        ctx.fillStyle = "rgb(" + c2.r + "," + c2.g + "," + c2.b + ")";
+        ctx.fillRect(x2, SRC_H * 0.6, 1, SRC_H * 0.4);
+      }
+    }
+    function drawPalette(ctx) {
+      ctx.fillStyle = "#efefef"; ctx.fillRect(0, 0, SRC_W, SRC_H);
+      var cols = 8, rows = 5, cw = SRC_W / cols, ch = SRC_H / rows;
+      for (var i = 0; i < rows; i++) {
+        for (var j = 0; j < cols; j++) {
+          var h = (j / cols) * 360, s = 0.35 + (i / rows) * 0.65, v = 1 - (i / rows) * 0.35;
+          var c = hsv2rgb(h, s, v);
+          ctx.fillStyle = "rgb(" + c.r + "," + c.g + "," + c.b + ")";
+          ctx.fillRect(j * cw, i * ch, cw, ch);
+        }
+      }
+    }
+    function drawShapes(ctx) {
+      ctx.fillStyle = "#20232a"; ctx.fillRect(0, 0, SRC_W, SRC_H);
+      var patches = [
+        [30,30,'#e6432f'],[95,30,'#3d7fe0'],[160,30,'#3fbf6c'],[225,30,'#f2c22c'],
+        [30,90,'#e07de0'],[95,90,'#20c4c4'],[160,90,'#f2914a'],[225,90,'#ffffff'],
+        [60,140,'#7a4fd6'],[190,140,'#c94f7c']
+      ];
+      patches.forEach(function (p) {
+        ctx.fillStyle = p[2]; ctx.beginPath(); ctx.arc(p[0], p[1], 26, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+    function setPresetActive(btn) {
+      [el.presetSpectrum, el.presetPalette, el.presetPhoto].forEach(function (b) { b.classList.remove("active"); });
+      if (btn) btn.classList.add("active");
+    }
+    function loadPreset(drawFn) {
+      srcCtx.clearRect(0, 0, SRC_W, SRC_H);
+      drawFn(srcCtx);
+    }
+    el.presetSpectrum.addEventListener("click", function () { setPresetActive(el.presetSpectrum); loadPreset(drawSpectrum); });
+    el.presetPalette.addEventListener("click", function () { setPresetActive(el.presetPalette); loadPreset(drawPalette); });
+    el.presetPhoto.addEventListener("click", function () { setPresetActive(el.presetPhoto); loadPreset(drawShapes); });
+    el.fileInput.addEventListener("change", function (e) {
+      var file = e.target.files[0]; if (!file) return;
+      var img = new Image();
+      img.onload = function () {
+        setPresetActive(null);
+        srcCtx.clearRect(0, 0, SRC_W, SRC_H);
+        var scale = Math.max(SRC_W / img.width, SRC_H / img.height);
+        var dw = img.width * scale, dh = img.height * scale;
+        srcCtx.drawImage(img, (SRC_W - dw) / 2, (SRC_H - dh) / 2, dw, dh);
+        URL.revokeObjectURL(img.src);
+      };
+      img.src = URL.createObjectURL(file);
+    });
+
+    // ================= model panel definitions =================
+    var MODELS = [
+      { key: "rgb", title: "RGB (additive)", sub: "ลูกบาศก์เติมแสง — เลื่อน R,G,B", comps: [
+          { k: "r", label: "R", min: 0, max: 255, step: 1 },
+          { k: "g", label: "G", min: 0, max: 255, step: 1 },
+          { k: "b", label: "B", min: 0, max: 255, step: 1 }
+        ] },
+      { key: "hsv", title: "HSV", sub: "วงล้อ Hue-Saturation ที่ระดับ Value ปัจจุบัน", comps: [
+          { k: "h", label: "H", min: 0, max: 360, step: 1 },
+          { k: "s", label: "S", min: 0, max: 100, step: 1 },
+          { k: "v", label: "V", min: 0, max: 100, step: 1 }
+        ] },
+      { key: "hsl", title: "HSL", sub: "วงล้อ Hue-Saturation ที่ระดับ Lightness ปัจจุบัน", comps: [
+          { k: "h", label: "H", min: 0, max: 360, step: 1 },
+          { k: "s", label: "S", min: 0, max: 100, step: 1 },
+          { k: "l", label: "L", min: 0, max: 100, step: 1 }
+        ] },
+      { key: "xyz", title: "XYZ (CIE xy chromaticity)", sub: "แผนภาพ chromaticity ประมาณ + ความสว่าง Y", comps: [
+          { k: "x", label: "x", min: 0, max: 0.75, step: 0.001 },
+          { k: "y", label: "y", min: 0, max: 0.85, step: 0.001 },
+          { k: "Y", label: "Y%", min: 0, max: 100, step: 1 }
+        ] },
+      { key: "ycrcb", title: "YCrCb", sub: "ระนาบ Cb-Cr ที่ระดับความสว่าง Y ปัจจุบัน", comps: [
+          { k: "y", label: "Y", min: 0, max: 255, step: 1 },
+          { k: "cr", label: "Cr", min: 0, max: 255, step: 1 },
+          { k: "cb", label: "Cb", min: 0, max: 255, step: 1 }
+        ] },
+      { key: "cmyk", title: "CMYK (subtractive)", sub: "หมึกพิมพ์ — แถบเปอร์เซ็นต์ C,M,Y,K", comps: [
+          { k: "c", label: "C", min: 0, max: 100, step: 1 },
+          { k: "m", label: "M", min: 0, max: 100, step: 1 },
+          { k: "y", label: "Y", min: 0, max: 100, step: 1 },
+          { k: "k", label: "K", min: 0, max: 100, step: 1 }
+        ] }
+    ];
+
+    var panelRefs = {};
+    var diagramSize = 150;
+
+    function buildModelCards() {
+      MODELS.forEach(function (model) {
+        var card = document.createElement("div");
+        card.className = "model-card";
+        var isBarModel = model.key === "cmyk";
+        var slidersHtml = model.comps.map(function (comp) {
+          return '<div class="slider-row">' +
+            '<label>' + comp.label + '</label>' +
+            '<input type="range" min="' + comp.min + '" max="' + comp.max + '" step="' + comp.step + '" data-model="' + model.key + '" data-comp="' + comp.k + '" />' +
+            '<span class="val" id="val_' + model.key + '_' + comp.k + '">—</span>' +
+            '</div>';
+        }).join("");
+        card.innerHTML =
+          '<h3>' + model.title + '</h3>' +
+          '<p class="model-sub">' + model.sub + '</p>' +
+          (isBarModel ? "" : '<div class="diagram-wrap"><canvas class="diagram" id="diagram_' + model.key + '" width="' + diagramSize + '" height="' + diagramSize + '"></canvas></div>') +
+          '<div class="slider-rows">' + slidersHtml + '</div>';
+        el.modelGrid.appendChild(card);
+
+        var refs = { sliders: {}, vals: {} };
+        model.comps.forEach(function (comp) {
+          refs.sliders[comp.k] = card.querySelector('input[data-comp="' + comp.k + '"]');
+          refs.vals[comp.k] = document.getElementById("val_" + model.key + "_" + comp.k);
+        });
+        if (!isBarModel) refs.diagramCanvas = document.getElementById("diagram_" + model.key);
+        panelRefs[model.key] = refs;
+
+        model.comps.forEach(function (comp) {
+          refs.sliders[comp.k].addEventListener("input", function () { onModelInput(model.key); });
+        });
+      });
+    }
+
+    function onModelInput(modelKey) {
+      var r = panelRefs[modelKey];
+      var rgb;
+      if (modelKey === "rgb") {
+        rgb = { r: Number(r.sliders.r.value), g: Number(r.sliders.g.value), b: Number(r.sliders.b.value) };
+      } else if (modelKey === "hsv") {
+        rgb = hsv2rgb(Number(r.sliders.h.value), Number(r.sliders.s.value) / 100, Number(r.sliders.v.value) / 100);
+      } else if (modelKey === "hsl") {
+        rgb = hsl2rgb(Number(r.sliders.h.value), Number(r.sliders.s.value) / 100, Number(r.sliders.l.value) / 100);
+      } else if (modelKey === "xyz") {
+        var xyz = chromaToXYZ(Number(r.sliders.x.value), Number(r.sliders.y.value), Number(r.sliders.Y.value) / 100);
+        rgb = xyz2rgb(xyz.X, xyz.Y, xyz.Z);
+      } else if (modelKey === "ycrcb") {
+        rgb = ycrcb2rgb(Number(r.sliders.y.value), Number(r.sliders.cr.value), Number(r.sliders.cb.value));
+      } else if (modelKey === "cmyk") {
+        rgb = cmyk2rgb(Number(r.sliders.c.value) / 100, Number(r.sliders.m.value) / 100, Number(r.sliders.y.value) / 100, Number(r.sliders.k.value) / 100);
+      }
+      setCanonical(rgb.r, rgb.g, rgb.b, modelKey);
+    }
+
+    function setCanonical(r, g, b, sourceModel) {
+      canonical = { r: clamp(round(r), 0, 255), g: clamp(round(g), 0, 255), b: clamp(round(b), 0, 255) };
+      syncAll(sourceModel);
+    }
+
+    function fmt(n, d) { return n.toFixed(d == null ? 0 : d); }
+
+    function syncAll(sourceModel) {
+      var r = canonical.r, g = canonical.g, b = canonical.b;
+      el.pickedSwatch.style.background = "rgb(" + r + "," + g + "," + b + ")";
+      el.pickedRgbText.textContent = "RGB(" + r + "," + g + "," + b + ")";
+
+      var hsv = rgb2hsv(r, g, b), hsl = rgb2hsl(r, g, b), cmyk = rgb2cmyk(r, g, b);
+      var xyz = rgb2xyz(r, g, b), chroma = xyzToChroma(xyz.X, xyz.Y, xyz.Z), ycc = rgb2ycrcb(r, g, b);
+
+      updateModel("rgb", { r: r, g: g, b: b }, { r: r, g: g, b: b }, sourceModel);
+      updateModel("hsv", { h: fmt(hsv.h, 0), s: fmt(hsv.s * 100, 0), v: fmt(hsv.v * 100, 0) },
+        { h: hsv.h, s: hsv.s * 100, v: hsv.v * 100 }, sourceModel);
+      updateModel("hsl", { h: fmt(hsl.h, 0), s: fmt(hsl.s * 100, 0), l: fmt(hsl.l * 100, 0) },
+        { h: hsl.h, s: hsl.s * 100, l: hsl.l * 100 }, sourceModel);
+      updateModel("xyz", { x: fmt(chroma.x, 3), y: fmt(chroma.y, 3), Y: fmt(xyz.Y * 100, 0) },
+        { x: chroma.x, y: chroma.y, Y: xyz.Y * 100 }, sourceModel);
+      updateModel("ycrcb", { y: fmt(ycc.y, 0), cr: fmt(ycc.cr, 0), cb: fmt(ycc.cb, 0) },
+        { y: ycc.y, cr: ycc.cr, cb: ycc.cb }, sourceModel);
+      updateModel("cmyk", { c: fmt(cmyk.c * 100, 0), m: fmt(cmyk.m * 100, 0), y: fmt(cmyk.y * 100, 0), k: fmt(cmyk.k * 100, 0) },
+        { c: cmyk.c * 100, m: cmyk.m * 100, y: cmyk.y * 100, k: cmyk.k * 100 }, sourceModel);
+
+      drawDiagram("rgb", { r: r, g: g, b: b });
+      drawDiagram("hsv", { h: hsv.h, s: hsv.s, v: hsv.v });
+      drawDiagram("hsl", { h: hsl.h, s: hsl.s, l: hsl.l });
+      drawDiagram("xyz", { x: chroma.x, y: chroma.y });
+      drawDiagram("ycrcb", { y: ycc.y, cr: ycc.cr, cb: ycc.cb });
+    }
+
+    function updateModel(key, displayVals, rawVals, sourceModel) {
+      var refs = panelRefs[key];
+      Object.keys(displayVals).forEach(function (k) { refs.vals[k].textContent = displayVals[k]; });
+      if (key !== sourceModel) {
+        Object.keys(rawVals).forEach(function (k) { if (refs.sliders[k]) refs.sliders[k].value = rawVals[k]; });
+      }
+    }
+
+    // ================= diagrams =================
+    function drawDiagram(key, v) {
+      var canvas = panelRefs[key].diagramCanvas;
+      if (!canvas) return;
+      var ctx = canvas.getContext("2d");
+      var W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      if (key === "rgb") {
+        drawRgbCube(ctx, W, H, v);
+      } else if (key === "hsv" || key === "hsl") {
+        drawHueWheel(ctx, W, H, v, key);
+      } else if (key === "xyz") {
+        drawChromaDiagram(ctx, W, H, v);
+      } else if (key === "ycrcb") {
+        drawYCbCrPlane(ctx, W, H, v);
+      }
+    }
+
+    function drawRgbCube(ctx, W, H, v) {
+      var scale = Math.min(W, H) * 0.42;
+      var ox = W * 0.32, oy = H * 0.78;
+      function proj(r, g, b) {
+        var p = isoProjectCube(r, g, b);
+        return { x: ox + p.x * scale, y: oy + p.y * scale };
+      }
+      var C = { black:[0,0,0],red:[1,0,0],green:[0,1,0],blue:[0,0,1],yellow:[1,1,0],magenta:[1,0,1],cyan:[0,1,1],white:[1,1,1] };
+      var P = {}; Object.keys(C).forEach(function (k) { P[k] = proj(C[k][0], C[k][1], C[k][2]); });
+      var edges = [
+        ["black","red"],["black","green"],["black","blue"],
+        ["red","yellow"],["red","magenta"],["green","yellow"],["green","cyan"],
+        ["blue","magenta"],["blue","cyan"],["yellow","white"],["magenta","white"],["cyan","white"]
+      ];
+      ctx.strokeStyle = "rgba(120,120,130,0.55)"; ctx.lineWidth = 1;
+      edges.forEach(function (e) { ctx.beginPath(); ctx.moveTo(P[e[0]].x, P[e[0]].y); ctx.lineTo(P[e[1]].x, P[e[1]].y); ctx.stroke(); });
+
+      var mp = proj(v.r / 255, v.g / 255, v.b / 255);
+      ctx.fillStyle = "rgb(" + v.r + "," + v.g + "," + v.b + ")";
+      ctx.strokeStyle = "#000"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(mp.x, mp.y, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+
+    function drawHueWheel(ctx, W, H, v, key) {
+      var cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 - 4;
+      var level = key === "hsv" ? v.v : v.l;
+      var img = ctx.createImageData(W, H);
+      for (var py = 0; py < H; py++) {
+        for (var px = 0; px < W; px++) {
+          var dx = px - cx, dy = py - cy, dist = Math.sqrt(dx * dx + dy * dy);
+          var idx = (py * W + px) * 4;
+          if (dist > R) { img.data[idx + 3] = 0; continue; }
+          var ang = Math.atan2(-dy, dx); if (ang < 0) ang += 2 * Math.PI;
+          var hue = ang / (2 * Math.PI) * 360;
+          var sat = clamp(dist / R, 0, 1);
+          var rgb = key === "hsv" ? hsv2rgb(hue, sat, level) : hsl2rgb(hue, sat, level);
+          img.data[idx] = rgb.r; img.data[idx + 1] = rgb.g; img.data[idx + 2] = rgb.b; img.data[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+
+      var pr = v.s * R, ang2 = v.h / 360 * 2 * Math.PI;
+      var px2 = cx + pr * Math.cos(ang2), py2 = cy - pr * Math.sin(ang2);
+      ctx.fillStyle = "#fff"; ctx.strokeStyle = "#000"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(px2, py2, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+
+    function drawChromaDiagram(ctx, W, H, v) {
+      var pad = 10, xMax = 0.8, yMax = 0.9;
+      function toPx(x, y) { return { x: pad + (x / xMax) * (W - 2 * pad), y: H - pad - (y / yMax) * (H - 2 * pad) }; }
+      var img = ctx.createImageData(W, H);
+      for (var py = 0; py < H; py++) {
+        for (var px = 0; px < W; px++) {
+          var x = ((px - pad) / (W - 2 * pad)) * xMax, y = yMax - ((py - pad) / (H - 2 * pad)) * yMax;
+          var idx = (py * W + px) * 4;
+          if (x < 0 || y < 0 || x + y > 1 || !insideLocus(x, y)) { img.data[idx + 3] = 0; continue; }
+          var xyz = chromaToXYZ(x, y, 0.6);
+          var lin = xyzToLinearRgb(xyz.X, xyz.Y, xyz.Z);
+          var eps = 0.02; // small tolerance so the sRGB triangle's edges aren't jagged
+          if (lin.R < -eps || lin.R > 1 + eps || lin.G < -eps || lin.G > 1 + eps || lin.B < -eps || lin.B > 1 + eps) {
+            img.data[idx + 3] = 0; continue;
+          }
+          var rgb = { r: linearToSrgb(lin.R), g: linearToSrgb(lin.G), b: linearToSrgb(lin.B) };
+          img.data[idx] = rgb.r; img.data[idx + 1] = rgb.g; img.data[idx + 2] = rgb.b; img.data[idx + 3] = 235;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      ctx.strokeStyle = "rgba(90,90,100,0.6)"; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      CIE_LOCUS.forEach(function (p, i) { var s = toPx(p[0], p[1]); if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y); });
+      ctx.closePath(); ctx.stroke();
+
+      var mp = toPx(v.x, v.y);
+      ctx.fillStyle = "#fff"; ctx.strokeStyle = "#000"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(mp.x, mp.y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+    function insideLocus(x, y) {
+      // quick point-in-polygon test against the CIE locus (closed by the purple line)
+      var inside = false;
+      for (var i = 0, j = CIE_LOCUS.length - 1; i < CIE_LOCUS.length; j = i++) {
+        var xi = CIE_LOCUS[i][0], yi = CIE_LOCUS[i][1], xj = CIE_LOCUS[j][0], yj = CIE_LOCUS[j][1];
+        var intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+
+    function drawYCbCrPlane(ctx, W, H, v) {
+      var img = ctx.createImageData(W, H);
+      for (var py = 0; py < H; py++) {
+        for (var px = 0; px < W; px++) {
+          var cb = (px / W) * 255, cr = 255 - (py / H) * 255;
+          var idx = (py * W + px) * 4;
+          var rgb = ycrcb2rgb(v.y, cr, cb);
+          var raw_r = v.y + 1.403 * (cr - 128), raw_g = v.y - 0.714 * (cr - 128) - 0.344 * (cb - 128), raw_b = v.y + 1.773 * (cb - 128);
+          if (raw_r < -1 || raw_r > 256 || raw_g < -1 || raw_g > 256 || raw_b < -1 || raw_b > 256) { img.data[idx + 3] = 0; continue; }
+          img.data[idx] = rgb.r; img.data[idx + 1] = rgb.g; img.data[idx + 2] = rgb.b; img.data[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      var px2 = (v.cb / 255) * W, py2 = H - (v.cr / 255) * H;
+      ctx.fillStyle = "#fff"; ctx.strokeStyle = "#000"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(px2, py2, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+
+    // ================= hover on source image =================
+    function attachHover() {
+      el.srcCanvas.addEventListener("mousemove", function (evt) {
+        var rect = el.srcCanvas.getBoundingClientRect();
+        var px = clamp(Math.floor((evt.clientX - rect.left) / rect.width * SRC_W), 0, SRC_W - 1);
+        var py = clamp(Math.floor((evt.clientY - rect.top) / rect.height * SRC_H), 0, SRC_H - 1);
+        var d = srcCtx.getImageData(px, py, 1, 1).data;
+        el.srcMarker.style.left = ((px + 0.5) / SRC_W * 100) + "%";
+        el.srcMarker.style.top = ((py + 0.5) / SRC_H * 100) + "%";
+        el.srcMarker.style.display = "block";
+        setCanonical(d[0], d[1], d[2], null);
+      });
+      el.srcCanvas.addEventListener("mouseleave", function () { el.srcMarker.style.display = "none"; });
+    }
+
+    // ================= init =================
+    el.srcCanvas.width = SRC_W; el.srcCanvas.height = SRC_H;
+    srcCtx = el.srcCanvas.getContext("2d");
+    buildModelCards();
+    attachHover();
+    setPresetActive(el.presetSpectrum);
+    loadPreset(drawSpectrum);
+    setCanonical(canonical.r, canonical.g, canonical.b, null);
+
+    el.mathToggle.addEventListener("click", function () {
+      var show = el.mathBody.hidden;
+      el.mathBody.hidden = !show;
+      el.mathToggle.setAttribute("aria-expanded", String(show));
+      el.mathToggle.textContent = show ? "ซ่อนสูตร" : "แสดงสูตรแปลงสี";
+    });
+  })();
+</script>

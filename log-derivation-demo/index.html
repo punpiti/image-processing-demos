@@ -1,0 +1,844 @@
+<title>Laplacian of Gaussian — จากไหนมา ทำไมต้องมี</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- Open Graph / Social sharing -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Laplacian of Gaussian — จากไหนมา ทำไมต้องมี">
+<meta property="og:description" content="ไล่เหตุผลทีละขั้น: ทำไม blur ก่อน HPF, รวม Gaussian+Laplacian เป็น operator เดียว, ไปจนถึงสูตรปิด — ดูได้ทั้ง 1D และ 2D">
+<meta property="og:url" content="https://urban.cpe.ku.ac.th/image_processing/demos/log-derivation-demo/">
+<meta property="og:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/log-derivation-demo/og.png">
+<meta property="og:image:width" content="1731">
+<meta property="og:image:height" content="909">
+<meta property="og:site_name" content="Image Processing Demos">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Laplacian of Gaussian — จากไหนมา ทำไมต้องมี">
+<meta name="twitter:description" content="ไล่เหตุผลทีละขั้น: ทำไม blur ก่อน HPF, รวม Gaussian+Laplacian เป็น operator เดียว, ไปจนถึงสูตรปิด — ดูได้ทั้ง 1D และ 2D">
+<meta name="twitter:image" content="https://urban.cpe.ku.ac.th/image_processing/demos/log-derivation-demo/og.png">
+<style>
+  :root {
+    --bg: #f3f4f4;
+    --surface: #ffffff;
+    --surface-2: #eaecec;
+    --border: #d9dbdb;
+    --text-primary: #1d2222;
+    --text-secondary: #4f5656;
+    --text-muted: #838a8a;
+    --accent: #0e7c86;
+    --accent-ink: #ffffff;
+    --good: #0e7c86;
+    --warn: #b3562c;
+    --shadow: 0 1px 2px rgba(29,34,34,.06), 0 8px 24px rgba(29,34,34,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101616; --surface: #181f1f; --surface-2: #212a2a; --border: #354040;
+      --text-primary: #ecf1f1; --text-secondary: #bec8c8; --text-muted: #838a8a;
+      --accent: #4fc3cf; --accent-ink: #0a1717;
+      --good: #4fc3cf; --warn: #e08a52;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101616; --surface: #181f1f; --surface-2: #212a2a; --border: #354040;
+    --text-primary: #ecf1f1; --text-secondary: #bec8c8; --text-muted: #838a8a;
+    --accent: #4fc3cf; --accent-ink: #0a1717;
+    --good: #4fc3cf; --warn: #e08a52;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text-primary); font-family: -apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif; line-height: 1.55; }
+  .page { max-width: 1160px; margin: 0 auto; padding: 40px 20px 80px; display: flex; flex-direction: column; gap: 26px; }
+  .hero { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow { margin: 0; font: 600 12px/1 -apple-system,sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  h1 { margin: 0; font-family: Charter,"Iowan Old Style","Noto Serif Thai",Georgia,serif; font-weight: 600; font-size: clamp(26px,3.6vw,38px); text-wrap: balance; }
+  .lede { margin: 0; max-width: 72ch; color: var(--text-secondary); font-size: 16px; }
+  section.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+
+  .mode-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .radio-chip { display: flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface-2); cursor: pointer; font-size: 13.5px; font-weight: 700; color: var(--text-secondary); }
+  .radio-chip input { accent-color: var(--accent); }
+  .radio-chip.checked { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+
+  .narrative { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .insight { display: flex; gap: 12px; align-items: flex-start; opacity: .28; filter: grayscale(.4); transition: opacity .35s ease, filter .35s ease; }
+  .insight.active { opacity: 1; filter: none; }
+  .insight .dot { flex: none; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--border); }
+  .insight.active .dot { background: var(--accent); }
+  .insight p { margin: 0; font-family: Charter,"Iowan Old Style","Noto Serif Thai",Georgia,serif; font-size: 16px; }
+  .insight b { font-weight: 700; }
+  .insight .k-accent { color: var(--accent); }
+  .insight .step-num {
+    flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-2);
+    border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center;
+    font: 700 11px ui-monospace,"SF Mono",Consolas,monospace; color: var(--text-muted); margin-top: 2px;
+  }
+  .insight.active .step-num { border-color: var(--accent); color: var(--accent); }
+
+  .section-title { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; }
+  .section-note { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+
+  .step-panel { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .filter-controls { display: flex; flex-wrap: wrap; gap: 16px 26px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
+  .field label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+  .slider-field { display: flex; align-items: center; gap: 10px; }
+  input[type="range"] { accent-color: var(--accent); flex: 1; }
+  .slider-val { font: 700 13px/1 ui-monospace,"SF Mono",Consolas,monospace; min-width: 3em; text-align: right; }
+
+  .compare-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+
+  /* compact side-by-side layout so all 5 1D figures fit on one screen */
+  .fig-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+  .fig-block { flex: 1 1 200px; max-width: 260px; display: flex; flex-direction: column; gap: 8px; }
+  .fig-block .section-title { font-size: 11.5px; }
+  .fig-block .section-note { font-size: 11px; }
+  .fig-block .compare-box h4 { margin: 0; font-size: 11px; font-weight: 700; color: var(--text-secondary); }
+  .fig-block .kernel-label { font-size: 10px; }
+  .fig-block .inspect-panel { padding: 8px 10px; gap: 6px; }
+  .fig-block .inspect-panel h4 { font-size: 10.5px; }
+  table.kmatrix.compact td { width: 22px; height: 20px; font-size: 9px; }
+  svg.kernel-shape { width: 100%; height: 44px; display: block; margin: 2px 0; }
+  .compare-box { display: flex; flex-direction: column; gap: 6px; }
+  .compare-box h4 { margin: 0; font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+  .compare-box p.hint { margin: 0; font-size: 11px; color: var(--text-muted); }
+  .canvas-frame { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+  canvas.img-canvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+  svg.chart1d { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); cursor: crosshair; }
+  .hover-marker { position: absolute; width: 9px; height: 9px; border: 2px solid #fff; box-shadow: 0 0 0 1.5px #000; border-radius: 50%; transform: translate(-50%,-50%); pointer-events: none; display: none; }
+
+  .proof-banner { display: flex; flex-wrap: wrap; gap: 20px; align-items: baseline; padding: 12px 16px; background: var(--surface-2); border-radius: 10px; border: 1px solid var(--border); }
+  .proof-banner .big { font: 700 22px ui-monospace,"SF Mono",Consolas,monospace; color: var(--good); }
+  .proof-banner .label { font-size: 12.5px; color: var(--text-secondary); }
+
+  .kernel-display { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; }
+  .kernel-display > div { max-width: 100%; overflow-x: auto; }
+  table.kmatrix { border-collapse: collapse; font: 700 11px ui-monospace,"SF Mono",Consolas,monospace; }
+  table.kmatrix td { width: 38px; height: 30px; text-align: center; border: 1px solid var(--border); background: var(--surface-2); }
+  table.kmatrix td.neg { color: var(--warn); }
+  table.kmatrix td.pos { color: var(--good); }
+  .kernel-label { font-size: 11.5px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+
+  .inspect-panel { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: var(--surface-2); border-radius: 10px; border: 1px solid var(--border); }
+  .inspect-panel h4 { margin: 0; font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+  .inspect-empty { font-size: 12.5px; color: var(--text-muted); font-style: italic; margin: 0; }
+  .calc-terms { display: flex; flex-wrap: wrap; gap: 6px; font: 600 12px ui-monospace,"SF Mono",Consolas,monospace; }
+  .calc-term { padding: 3px 7px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); }
+  .calc-term.neg { color: var(--warn); }
+  .calc-term.pos { color: var(--good); }
+  .calc-final { font-size: 13px; }
+  .calc-final b { font: 700 15px ui-monospace,"SF Mono",Consolas,monospace; color: var(--text-primary); }
+
+  .math-panel { padding: 18px 24px; }
+  .math-toggle { font: 600 13.5px -apple-system,sans-serif; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; }
+  .math-body { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .formula { font-family: ui-monospace,"SF Mono",Consolas,monospace; font-size: 12.5px; color: var(--text-primary); padding: 10px 12px; background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border); white-space: pre-wrap; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12px; }
+
+  [data-mode-panel] { display: none; }
+  [data-mode-panel].active { display: flex; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 480px) {
+    .page { padding: 22px 14px 48px; gap: 18px; }
+    .narrative, .step-panel, .math-panel { padding: 16px 16px; }
+  }
+  @media (min-width: 1050px) {
+    .page {
+      max-width: min(94vw, 1900px);
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      grid-template-areas: "hero hero" "narrative mode" "narrative controls" "narrative step1" "narrative step2" "narrative step3" "narrative step4" "narrative step5" "narrative step6" "narrative step7" "narrative math" "footer footer";
+      gap: 14px 28px;
+      padding: 20px 32px 26px;
+    }
+    .hero { grid-area: hero; }
+    .narrative { grid-area: narrative; position: sticky; top: 18px; align-self: start; max-height: calc(100vh - 36px); overflow-y: auto; }
+    .card.mode-card { grid-area: mode; padding: 14px 20px; }
+    .step-controls { grid-area: controls; padding: 16px 20px; }
+    [data-step="1"] { grid-area: step1; padding: 16px 20px; }
+    [data-step="2"] { grid-area: step2; padding: 16px 20px; }
+    [data-step="3"] { grid-area: step3; padding: 16px 20px; }
+    [data-step="4"] { grid-area: step4; padding: 16px 20px; }
+    [data-step="5"] { grid-area: step5; padding: 16px 20px; }
+    [data-step="6"] { grid-area: step6; padding: 16px 20px; }
+    [data-step="7"] { grid-area: step7; padding: 16px 20px; }
+    .math-panel { grid-area: math; padding: 14px 20px; }
+    footer { grid-area: footer; }
+  }
+  @media (min-width: 1900px) { .page { grid-template-columns: 420px 1fr; } }
+</style>
+
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">01204483 Image Processing — Topic 05, Edge Detection</p>
+    <h1>Laplacian of Gaussian — จากไหนมา ทำไมต้องมี</h1>
+    <p class="lede">
+      ไล่เหตุผลทีละขั้น: ทำไมต้อง blur ก่อนหาขอบ → รวม Gaussian (LPF) กับ
+      Laplacian (HPF) เป็น operator เดียวได้อย่างไร → ทำไมไม่ต้องสนทิศทางแบบ
+      Sobel (เฉพาะ 2D) → และสุดท้าย LoG คืออนุพันธ์อันดับ 2 ของ Gaussian
+      โดยตรง — เริ่มดูแบบ 1D ก่อน (เข้าใจง่ายกว่า) แล้วค่อยดู 2D
+    </p>
+  </header>
+
+  <section class="card mode-card">
+    <p class="section-title" style="margin-bottom:8px">แสดงแบบ</p>
+    <div class="mode-row" id="modeRow">
+      <label class="radio-chip checked"><input type="radio" name="dim" value="1d" checked /> 1D (สัญญาณเส้นเดียว)</label>
+      <label class="radio-chip"><input type="radio" name="dim" value="2d" /> 2D (ภาพ)</label>
+    </div>
+  </section>
+
+  <section class="card narrative">
+    <div class="insight active" id="insA">
+      <span class="step-num">1</span>
+      <p>Laplacian (อนุพันธ์อันดับ 2) เป็น <b class="k-accent">High-Pass Filter</b> — ขยาย noise (ความถี่สูง) แรงมาก ถ้าไม่ blur (Low-Pass) ก่อน ผลลัพธ์จะเป็น noise ล้วน ไม่ใช่ขอบจริง</p>
+    </div>
+    <div class="insight active" id="insB">
+      <span class="step-num">2</span>
+      <p>Convolution มีสมบัติการรวม (associative): Laplacian(Gaussian * สัญญาณ) = (Laplacian * Gaussian) กับสัญญาณ — รวม kernel สองตัวเป็นตัวเดียวได้ล่วงหน้า ลองเอาเมาส์ชี้บนกราฟ/ภาพในข้อ 2 เพื่อดูค่าจริงของการคำนวณ</p>
+    </div>
+    <div class="insight active" id="insC">
+      <span class="step-num">3</span>
+      <p>Laplacian ใน 2D (∇² = ∂²/∂x² + ∂²/∂y²) เป็น operator <b class="k-accent">isotropic</b> ไม่ต้องแยก Gx/Gy แบบ Sobel — ข้อนี้เป็นแนวคิดเฉพาะ 2D เพราะ 1D มีมิติเดียว ไม่มีปัญหาเรื่องทิศทางตั้งแต่ต้น</p>
+    </div>
+    <div class="insight active" id="insD">
+      <span class="step-num">4</span>
+      <p>สุดท้าย LoG มีสูตรปิด (closed form) จากการหาอนุพันธ์อันดับ 2 ของฟังก์ชัน Gaussian โดยตรง ไม่ต้องคำนวณ convolution ของ 2 kernel เลยก็ได้</p>
+    </div>
+  </section>
+
+  <section class="card step-panel step-controls">
+    <p class="section-title">ตั้งค่า operator (ใช้ร่วมกันทุกส่วนด้านล่าง ทั้ง 1D และ 2D)</p>
+    <div class="filter-controls">
+      <div class="field">
+        <label for="sigmaSlider">σ ของ Gaussian</label>
+        <div class="slider-field">
+          <input type="range" id="sigmaSlider" min="0.5" max="2.5" step="0.1" value="2.0" />
+          <span class="slider-val" id="sigmaVal">2.0</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="noiseSlider">Noise ในสัญญาณ/ภาพทดสอบ (1D: ทุกข้อ, 2D: ข้อ 1–2)</label>
+        <div class="slider-field">
+          <input type="range" id="noiseSlider" min="0" max="40" step="2" value="18" />
+          <span class="slider-val" id="noiseVal">18</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= 1D MODE ============================= -->
+  <section class="card step-panel" data-step="1" data-mode-panel="1d">
+    <p class="section-title">1–4 · จากสัญญาณ ถึง Laplacian⊛Gaussian (เทียบทั้งหมดพร้อมกัน)</p>
+    <p class="section-note">ทุก block ด้านล่างกรองสัญญาณต้นฉบับเส้นเดียวกัน (block 1) ด้วย operator ที่ต่างกัน — เอาเมาส์ชี้บนกราฟผลลัพธ์ของ block 4 เพื่อดูค่าจริงของ operator ที่ตำแหน่งนั้น</p>
+    <div class="fig-row">
+      <div class="fig-block">
+        <h4 style="margin:0;font-size:12px;font-weight:700">1 · สัญญาณตัวอย่าง</h4>
+        <p class="section-note">N=64, noise ปรับได้ด้านบน</p>
+        <div class="compare-box">
+          <svg class="chart1d" id="s1_signal" viewBox="0 0 200 120"><path fill="none" stroke="var(--text-secondary)" stroke-width="1.75" /></svg>
+        </div>
+      </div>
+
+      <div class="fig-block">
+        <h4 style="margin:0;font-size:12px;font-weight:700">2 · Laplacian (HPF)</h4>
+        <p class="section-note">ไม่ blur ก่อน — noise ถูกขยายจนกลบขอบจริง</p>
+        <div class="kernel-display">
+          <div>
+            <div class="kernel-label">[1, −2, 1]</div>
+            <svg class="kernel-shape" id="s2_kernelShape" viewBox="0 0 100 44"></svg>
+            <table class="kmatrix compact" id="s2_kernel"></table>
+          </div>
+        </div>
+        <div class="compare-box">
+          <svg class="chart1d" id="s2_output" viewBox="0 0 200 120"><path fill="none" stroke="var(--warn)" stroke-width="1.75" /></svg>
+        </div>
+      </div>
+
+      <div class="fig-block">
+        <h4 style="margin:0;font-size:12px;font-weight:700">3 · Gaussian (LPF)</h4>
+        <p class="section-note">เรียบขึ้นแต่ยังไม่บอกตำแหน่งขอบ (σ ปรับได้ด้านบน)</p>
+        <div class="kernel-display">
+          <div>
+            <div class="kernel-label">Gaussian (5 taps)</div>
+            <svg class="kernel-shape" id="s3_kernelShape" viewBox="0 0 100 44"></svg>
+            <table class="kmatrix compact" id="s3_kernel"></table>
+          </div>
+        </div>
+        <div class="compare-box">
+          <svg class="chart1d" id="s3_output" viewBox="0 0 200 120"><path fill="none" stroke="var(--good)" stroke-width="1.75" /></svg>
+        </div>
+      </div>
+
+      <div class="fig-block">
+        <h4 style="margin:0;font-size:12px;font-weight:700">4 · Laplacian⊛Gaussian</h4>
+        <p class="section-note">รอบเดียว = blur→derivative ทีละขั้น (associative)</p>
+        <div class="kernel-display">
+          <div>
+            <div class="kernel-label">ยาว 7</div>
+            <svg class="kernel-shape" id="s4_kernelShape" viewBox="0 0 100 44"></svg>
+            <table class="kmatrix compact" id="s4_kernel"></table>
+          </div>
+        </div>
+        <div class="compare-box">
+          <svg class="chart1d" id="s4_output" viewBox="0 0 200 120">
+            <path id="s4_output_path" fill="none" stroke="var(--accent)" stroke-width="2" />
+            <line id="s4_hoverline" x1="0" y1="0" x2="0" y2="120" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="3,3" opacity="0" />
+            <circle id="s4_hoverdot" r="3.5" fill="var(--accent)" opacity="0" />
+          </svg>
+        </div>
+        <div class="inspect-panel">
+          <p class="inspect-empty" id="s4_inspectEmpty">ชี้เมาส์บนกราฟเพื่อดูค่า operator</p>
+          <div id="s4_inspectBody" style="display:none; flex-direction:column; gap:6px;">
+            <p class="section-note" id="s4_posLabel">ตำแหน่ง —</p>
+            <div class="calc-terms" id="s4_calcTerms"></div>
+            <p class="calc-final" id="s4_calcFinal"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card step-panel" data-step="6" data-mode-panel="1d">
+    <p class="section-title">5 · ทำไมข้อทิศทางไม่มีใน 1D</p>
+    <p class="section-note">Sobel ต้องแยก Gx/Gy เพราะภาพมี 2 มิติ ขอบแนวตั้งกับแนวนอนตอบสนองไม่เหมือนกัน — สัญญาณ 1D มีแกนเดียว ไม่มีทิศทางให้เลือกตั้งแต่ต้น อนุพันธ์อันดับ 2 บนเส้นเดียวจึง "ครบ" อยู่แล้วโดยไม่ต้องพูดถึงทิศทางเลย ประเด็นนี้จะเห็นภาพชัดเมื่อสลับไปดูโหมด 2D (ปุ่มด้านบนสุด) ที่ต้องเทียบกับ Sobel จริง ๆ</p>
+  </section>
+
+  <section class="card step-panel" data-step="7" data-mode-panel="1d">
+    <p class="section-title">6 · LoG = อนุพันธ์อันดับ 2 ของ Gaussian โดยตรง — 1D</p>
+    <p class="section-note">สองวิธีสร้าง operator ตัวเดียวกัน: (ซ้าย) convolve Gaussian กับ [1,−2,1] แบบ discrete จากข้อ 4, (ขวา) แทนค่าสูตร G″(x;σ) ตรง ๆ — รูปทรง "Mexican hat" cross-section เหมือนกัน ต่างกันเล็กน้อยเพราะ discrete Laplacian เป็นการประมาณค่าของอนุพันธ์ต่อเนื่อง</p>
+    <div class="kernel-display">
+      <div><div class="kernel-label">จากข้อ 4: Gaussian ⊛ [1,−2,1] (discrete)</div><table class="kmatrix" id="k4_combined_1d"></table></div>
+      <div><div class="kernel-label">สูตรปิด: G″(x;σ) โดยตรง</div><table class="kmatrix" id="k4_closed_1d"></table></div>
+    </div>
+  </section>
+
+  <!-- ============================= 2D MODE ============================= -->
+  <section class="card step-panel" data-step="1" data-mode-panel="2d">
+    <p class="section-title">1 · ทำไมต้อง Blur (LPF) ก่อนหาขอบ (HPF) — 2D</p>
+    <div class="compare-grid">
+      <div class="compare-box">
+        <h4>ภาพทดสอบ (มี noise ตามสไลเดอร์)</h4>
+        <div class="canvas-frame"><canvas id="c1_src" class="img-canvas"></canvas></div>
+      </div>
+      <div class="compare-box">
+        <h4>Laplacian ตรง ๆ (ไม่ blur)</h4>
+        <p class="hint">HPF ล้วน — noise ถูกขยายจนกลบขอบจริง</p>
+        <div class="canvas-frame"><canvas id="c1_direct" class="img-canvas"></canvas></div>
+      </div>
+      <div class="compare-box">
+        <h4>Blur (Gaussian) ก่อน แล้วค่อย Laplacian</h4>
+        <p class="hint">LPF ก่อน HPF — เห็นขอบจริงชัดกว่ามาก</p>
+        <div class="canvas-frame"><canvas id="c1_blurred" class="img-canvas"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card step-panel" data-step="2" data-mode-panel="2d">
+    <p class="section-title">2 · รวม Gaussian + Laplacian เป็น Operator เดียว — 2D</p>
+    <p class="section-note">เอาเมาส์ชี้บนภาพ "ทำ 1 รอบ" ด้านล่างเพื่อดูค่าจริงของ operator ที่ตำแหน่งนั้น</p>
+    <div class="compare-grid" style="grid-template-columns: repeat(auto-fit, minmax(190px,1fr));">
+      <div class="compare-box">
+        <h4>วิธีที่ 1: ทำ 2 รอบ</h4>
+        <p class="hint">blur → laplacian (ทีละขั้น)</p>
+        <div class="canvas-frame"><canvas id="c2_twopass" class="img-canvas"></canvas></div>
+      </div>
+      <div class="compare-box">
+        <h4>วิธีที่ 2: ทำ 1 รอบ (ลองเอาเมาส์ชี้)</h4>
+        <p class="hint">convolve ด้วย kernel รวมแล้ว (Gaussian⊛Laplacian)</p>
+        <div class="canvas-frame">
+          <canvas id="c2_onepass" class="img-canvas"></canvas>
+          <div class="hover-marker" id="c2_marker"></div>
+        </div>
+      </div>
+    </div>
+    <div class="proof-banner">
+      <div><div class="big" id="c2_diff">—</div><div class="label">ผลต่างสูงสุด (เฉพาะพื้นที่กลางภาพ ไม่รวมขอบ)</div></div>
+      <div class="section-note" style="max-width:38ch">ผลต่างใกล้ขอบภาพเกิดจากวิธีจัดการขอบเขต (border clamp) ที่ต่างกันระหว่าง 2 รอบ กับ 1 รอบ ไม่ใช่ข้อผิดพลาดทางคณิตศาสตร์</div>
+    </div>
+    <div class="inspect-panel">
+      <h4>ค่าจริงของ operator ที่ตำแหน่งที่ชี้ (2D, kernel 7×7)</h4>
+      <p class="inspect-empty" id="c2_inspectEmpty">เอาเมาส์ไปชี้บนภาพ "ทำ 1 รอบ" ด้านบน</p>
+      <div id="c2_inspectBody" style="display:none; flex-direction:column; gap:8px;">
+        <p class="section-note" id="c2_posLabel">ตำแหน่ง —</p>
+        <div class="calc-terms" id="c2_calcTerms"></div>
+        <p class="calc-final" id="c2_calcFinal"></p>
+      </div>
+    </div>
+    <div class="kernel-display">
+      <div><div class="kernel-label">Gaussian (LPF)</div><table class="kmatrix" id="k2_gauss"></table></div>
+      <div><div class="kernel-label">Laplacian (HPF)</div><table class="kmatrix" id="k2_lap"></table></div>
+      <div><div class="kernel-label">= รวมกันเป็น (7×7)</div><table class="kmatrix" id="k2_combined"></table></div>
+    </div>
+  </section>
+
+  <section class="card step-panel" data-step="3" data-mode-panel="2d">
+    <p class="section-title">3 · ไม่ต้องสนทิศทาง — เทียบกับ Sobel</p>
+    <p class="section-note">ภาพทดสอบมีเส้นหลายแนว (0°–360°) — Sobel ทิศเดียวตรวจจับได้ไม่ครบทุกแนว ต้องรวม Gx+Gy (2 kernel) ถึงจะครบ ส่วน LoG ใช้ kernel เดียวจับได้ทุกแนวพร้อมกัน</p>
+    <div class="compare-grid">
+      <div class="compare-box"><h4>ภาพทดสอบ (เส้นหลายทิศ)</h4><div class="canvas-frame"><canvas id="c3_src" class="img-canvas"></canvas></div></div>
+      <div class="compare-box"><h4>Sobel Gx เท่านั้น</h4><p class="hint">พลาดเส้นบางแนว</p><div class="canvas-frame"><canvas id="c3_gx" class="img-canvas"></canvas></div></div>
+      <div class="compare-box"><h4>Sobel Gy เท่านั้น</h4><p class="hint">พลาดเส้นคนละแนวกับ Gx</p><div class="canvas-frame"><canvas id="c3_gy" class="img-canvas"></canvas></div></div>
+      <div class="compare-box"><h4>Sobel Magnitude</h4><p class="hint">ต้องรวม 2 kernel ถึงครบ</p><div class="canvas-frame"><canvas id="c3_mag" class="img-canvas"></canvas></div></div>
+      <div class="compare-box"><h4>LoG (kernel เดียว)</h4><p class="hint">ครบทุกแนวในครั้งเดียว</p><div class="canvas-frame"><canvas id="c3_log" class="img-canvas"></canvas></div></div>
+    </div>
+  </section>
+
+  <section class="card step-panel" data-step="4" data-mode-panel="2d">
+    <p class="section-title">4 · LoG = อนุพันธ์อันดับ 2 ของ Gaussian โดยตรง (สูตรปิด)</p>
+    <p class="section-note">สองวิธีสร้าง operator ตัวเดียวกัน: (ซ้าย) convolve Gaussian กับ Laplacian แบบ discrete จากข้อ 2, (ขวา) แทนค่าสูตร ∇²G(x,y;σ) ตรง ๆ — รูปทรง "Mexican hat" เหมือนกัน ต่างกันเล็กน้อยเพราะ discrete Laplacian เป็นการประมาณค่าของ ∇² ต่อเนื่อง</p>
+    <div class="kernel-display">
+      <div><div class="kernel-label">จากข้อ 2: Gaussian ⊛ Laplacian (discrete)</div><table class="kmatrix" id="k4_combined"></table></div>
+      <div><div class="kernel-label">สูตรปิด: ∇²G(x,y;σ) โดยตรง</div><table class="kmatrix" id="k4_closed"></table></div>
+    </div>
+  </section>
+
+  <section class="card math-panel">
+    <button class="math-toggle" id="mathToggle" aria-expanded="false">แสดงสูตรคำนวณ</button>
+    <div class="math-body" id="mathBody" hidden>
+      <div class="formula">1D อนุพันธ์อันดับ 2 (discrete): [1, −2, 1]   ,   2D Laplacian (4-connected):
+  [ 0  1  0 ]
+  [ 1 -4  1 ]
+  [ 0  1  0 ]</div>
+      <div class="formula">Associativity: L * (G * f) = (L * G) * f   (L=Laplacian kernel, G=Gaussian kernel, f=สัญญาณ/ภาพ, * คือ convolution)</div>
+      <div class="formula">1D closed-form: G″(x;σ) = 1/(σ³√(2π)) × (x²/σ² − 1) × exp(−x²/(2σ²))</div>
+      <div class="formula">2D closed-form LoG: ∇²G(x,y;σ) = −1/(πσ⁴) × [1 − (x²+y²)/(2σ²)] × exp(−(x²+y²)/(2σ²))</div>
+    </div>
+  </section>
+
+  <footer>
+    ตัวอย่างสมมติเพื่อการสอน — 1D: สัญญาณยาว 120 ตัวอย่าง; 2D: ภาพขาวดำ 200×200 พิกเซล; ค่าที่แสดงเป็น |ผลรวม| ที่ clip เพื่อการแสดงผล (กราฟ 1D แสดงค่าจริงแบบมีเครื่องหมาย)
+  </footer>
+</div>
+
+<script>
+  (function () {
+    // ================= shared helpers =================
+    function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+    function clampCoord(v, max) { return Math.min(Math.max(v, 0), max - 1); }
+    function gaussianRandom(mean, sd) {
+      var u = 1 - Math.random(), v = Math.random();
+      var z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+      return mean + z * sd;
+    }
+    function fmt(n) { return (Math.round(n * 100) / 100).toString(); }
+
+    function kernelTable(tableEl, kernel2dOr1d) {
+      var isRow = typeof kernel2dOr1d[0] === "number";
+      var rows = isRow ? [kernel2dOr1d] : kernel2dOr1d;
+      var maxAbs = 0;
+      rows.forEach(function (row) { row.forEach(function (v) { maxAbs = Math.max(maxAbs, Math.abs(v)); }); });
+      var html = "<tbody>";
+      rows.forEach(function (row) {
+        html += "<tr>";
+        row.forEach(function (v) {
+          var cls = v > 0.0001 ? "pos" : (v < -0.0001 ? "neg" : "");
+          var disp = maxAbs > 3 ? Math.round(v) : (Math.round(v * 100) / 100).toFixed(2);
+          html += '<td class="' + cls + '">' + disp + "</td>";
+        });
+        html += "</tr>";
+      });
+      html += "</tbody>";
+      tableEl.innerHTML = html;
+    }
+
+    // stem/lollipop plot of a 1D kernel's shape (pos taps vs neg taps colored differently)
+    function kernelShape1D(svgEl, kernel) {
+      var w = 100, h = 44, pad = 5, baseline = h / 2;
+      var n = kernel.length, stepX = (w - 2 * pad) / n;
+      var maxAbs = Math.max.apply(null, kernel.map(Math.abs)) || 1;
+      var html = '<line x1="' + pad + '" y1="' + baseline + '" x2="' + (w - pad) + '" y2="' + baseline + '" stroke="var(--border)" stroke-width="1" />';
+      for (var i = 0; i < n; i++) {
+        var cx = pad + stepX * (i + 0.5);
+        var v = kernel[i];
+        var vy = baseline - (v / maxAbs) * (baseline - pad);
+        var color = v >= 0 ? "var(--good)" : "var(--warn)";
+        html += '<line x1="' + cx.toFixed(1) + '" y1="' + baseline + '" x2="' + cx.toFixed(1) + '" y2="' + vy.toFixed(1) + '" stroke="' + color + '" stroke-width="2.5" stroke-linecap="round" />';
+        html += '<circle cx="' + cx.toFixed(1) + '" cy="' + vy.toFixed(1) + '" r="2.2" fill="' + color + '" />';
+      }
+      svgEl.innerHTML = html;
+    }
+
+    var el = {};
+    ["sigmaSlider", "sigmaVal", "noiseSlider", "noiseVal", "modeRow",
+     // 1D
+     "s1_signal",
+     "s2_kernel", "s2_kernelShape", "s2_output",
+     "s3_kernel", "s3_kernelShape", "s3_output",
+     "s4_kernel", "s4_kernelShape", "s4_output", "s4_output_path", "s4_hoverline", "s4_hoverdot",
+     "s4_inspectEmpty", "s4_inspectBody", "s4_posLabel", "s4_calcTerms", "s4_calcFinal",
+     "k4_combined_1d", "k4_closed_1d",
+     // 2D
+     "c1_src", "c1_direct", "c1_blurred", "c2_twopass", "c2_onepass", "c2_marker", "c2_diff",
+     "c2_inspectEmpty", "c2_inspectBody", "c2_posLabel", "c2_calcTerms", "c2_calcFinal",
+     "k2_gauss", "k2_lap", "k2_combined",
+     "c3_src", "c3_gx", "c3_gy", "c3_mag", "c3_log",
+     "k4_combined", "k4_closed", "mathToggle", "mathBody"
+    ].forEach(function (id) { el[id] = document.getElementById(id); });
+
+    // ================= mode switch =================
+    function setMode(mode) {
+      document.querySelectorAll("[data-mode-panel]").forEach(function (p) {
+        p.classList.toggle("active", p.getAttribute("data-mode-panel") === mode);
+      });
+      document.querySelectorAll("#modeRow .radio-chip").forEach(function (c) {
+        c.classList.toggle("checked", c.querySelector("input").checked);
+      });
+    }
+    document.querySelectorAll('input[name="dim"]').forEach(function (r) {
+      r.addEventListener("change", function () { setMode(r.value); });
+    });
+
+    // Gaussian kernel support must grow with sigma (three-sigma rule) — a kernel
+    // fixed at a few taps caps how much smoothing sigma can actually deliver,
+    // regardless of how high sigma is set, which was defeating the "blur enough
+    // to erase the noise" story this demo is supposed to tell.
+    function gaussianSize(sigma) { return 2 * Math.ceil(3 * sigma) + 1; }
+
+    // ================= 1D transform functions (verified before writing this file) =================
+    function convolve1DAt(x, n, i, kernel) {
+      var k = kernel.length, off = Math.floor((k - 1) / 2), sum = 0;
+      for (var j = 0; j < k; j++) { var idx = clampCoord(i + (j - off), n); sum += x[idx] * kernel[j]; }
+      return sum;
+    }
+    function applyFilter1D(x, n, kernel) {
+      var out = new Float64Array(n);
+      for (var i = 0; i < n; i++) out[i] = convolve1DAt(x, n, i, kernel);
+      return out;
+    }
+    function gaussianKernel1D(size, sigma) {
+      var c = (size - 1) / 2, k = [], sum = 0;
+      for (var i = 0; i < size; i++) { var x = i - c; var v = Math.exp(-(x * x) / (2 * sigma * sigma)); k.push(v); sum += v; }
+      for (var i = 0; i < size; i++) k[i] /= sum;
+      return k;
+    }
+    function convolveKernels1D(k1, k2) {
+      var n1 = k1.length, n2 = k2.length, on = n1 + n2 - 1, out = new Array(on).fill(0);
+      for (var i = 0; i < n1; i++) for (var j = 0; j < n2; j++) out[i + j] += k1[i] * k2[j];
+      return out;
+    }
+    var LAP1D = [1, -2, 1];
+    function logKernel1DClosedForm(size, sigma) {
+      var c = (size - 1) / 2, k = [], sum = 0, n = size;
+      for (var i = 0; i < size; i++) {
+        var x = i - c, s2 = sigma * sigma;
+        var v = (1 / (Math.sqrt(2 * Math.PI) * sigma * s2)) * (x * x / s2 - 1) * Math.exp(-x * x / (2 * s2));
+        k.push(v); sum += v;
+      }
+      var mean = sum / n;
+      for (var i = 0; i < n; i++) k[i] -= mean;
+      return k;
+    }
+
+    // ================= 2D transform functions (verified before writing this file) =================
+    function gaussianKernel(size, sigma) {
+      var c = (size - 1) / 2, k = [], sum = 0;
+      for (var i = 0; i < size; i++) {
+        k.push([]);
+        for (var j = 0; j < size; j++) {
+          var x = j - c, y = i - c;
+          var v = Math.exp(-(x * x + y * y) / (2 * sigma * sigma));
+          k[i].push(v); sum += v;
+        }
+      }
+      for (var i = 0; i < size; i++) for (var j = 0; j < size; j++) k[i][j] /= sum;
+      return k;
+    }
+    function logKernelClosedForm(size, sigma) {
+      var c = (size - 1) / 2, k = [], sum = 0, n = size * size;
+      for (var i = 0; i < size; i++) {
+        k.push([]);
+        for (var j = 0; j < size; j++) {
+          var x = j - c, y = i - c, r2 = x * x + y * y, s2 = sigma * sigma;
+          var v = -1 / (Math.PI * s2 * s2) * (1 - r2 / (2 * s2)) * Math.exp(-r2 / (2 * s2));
+          k[i].push(v); sum += v;
+        }
+      }
+      var mean = sum / n;
+      for (var i = 0; i < size; i++) for (var j = 0; j < size; j++) k[i][j] -= mean;
+      return k;
+    }
+    function convolveKernels(k1, k2) {
+      var h1 = k1.length, w1 = k1[0].length, h2 = k2.length, w2 = k2[0].length;
+      var oh = h1 + h2 - 1, ow = w1 + w2 - 1;
+      var out = []; for (var i = 0; i < oh; i++) out.push(new Array(ow).fill(0));
+      for (var i1 = 0; i1 < h1; i1++) for (var j1 = 0; j1 < w1; j1++) for (var i2 = 0; i2 < h2; i2++) for (var j2 = 0; j2 < w2; j2++) {
+        out[i1 + i2][j1 + j2] += k1[i1][j1] * k2[i2][j2];
+      }
+      return out;
+    }
+    var LAPLACIAN4 = [[0, 1, 0], [1, -4, 1], [0, 1, 0]];
+    var SOBEL_GX = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
+    var SOBEL_GY = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
+    function convolveAt(img, w, h, x, y, kernel) {
+      var kh = kernel.length, kw = kernel[0].length, offR = Math.floor((kh - 1) / 2), offC = Math.floor((kw - 1) / 2), sum = 0;
+      for (var i = 0; i < kh; i++) for (var j = 0; j < kw; j++) {
+        var sx = clampCoord(x + (j - offC), w), sy = clampCoord(y + (i - offR), h);
+        sum += img[sy * w + sx] * kernel[i][j];
+      }
+      return sum;
+    }
+    function applyFilter(img, w, h, kernel) {
+      var out = new Float64Array(w * h);
+      for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) out[y * w + x] = convolveAt(img, w, h, x, y, kernel);
+      return out;
+    }
+    function applyMagnitude(img, w, h, kx, ky) {
+      var out = new Float64Array(w * h);
+      for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+        var gx = convolveAt(img, w, h, x, y, kx), gy = convolveAt(img, w, h, x, y, ky);
+        out[y * w + x] = Math.sqrt(gx * gx + gy * gy);
+      }
+      return out;
+    }
+    function addNoiseToArray(arr, amp) {
+      if (amp <= 0) return arr.slice ? arr.slice() : arr.map(function (v) { return v; });
+      var out = new Float64Array(arr.length);
+      for (var i = 0; i < arr.length; i++) out[i] = clamp(arr[i] + gaussianRandom(0, amp), 0, 255);
+      return out;
+    }
+
+    // ================= 1D signal + charts =================
+    var N1D = 120;
+    function base1DSignal() {
+      var g = new Float64Array(N1D);
+      for (var n = 0; n < N1D; n++) {
+        var v = 60;
+        if (n > 35 && n < 65) v = 200;
+        if (n > 85 && n < 105) v = 30;
+        g[n] = v;
+      }
+      return g;
+    }
+    var base1D = base1DSignal();
+
+    var CW1D = 200, CH1D = 120, PADY = 10;
+    var y1dMin = -40, y1dMax = 260; // will be recomputed per-chart type via autoscale below
+    function xScale1D(n) { return (n / (N1D - 1)) * CW1D; }
+    function autoRange(arrays) {
+      var mn = Infinity, mx = -Infinity;
+      arrays.forEach(function (arr) { for (var i = 0; i < arr.length; i++) { if (arr[i] < mn) mn = arr[i]; if (arr[i] > mx) mx = arr[i]; } });
+      var pad = (mx - mn) * 0.15 || 1;
+      return { min: mn - pad, max: mx + pad };
+    }
+    function pathFor1D(arr, yMin, yMax) {
+      var d = "";
+      for (var n = 0; n < arr.length; n++) {
+        var py = CH1D - PADY - ((arr[n] - yMin) / (yMax - yMin)) * (CH1D - 2 * PADY);
+        d += (n === 0 ? "M" : "L") + xScale1D(n).toFixed(1) + "," + py.toFixed(1) + " ";
+      }
+      return d.trim();
+    }
+    function setPath1D(svgEl, arr, yMin, yMax) {
+      svgEl.querySelector("path").setAttribute("d", pathFor1D(arr, yMin, yMax));
+    }
+
+    // ================= 2D test images =================
+    var W = 200, H = 200;
+    function drawBlobShapeGray() {
+      var g = new Float64Array(W * H);
+      for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
+        var dx = x - 70, dy = y - 70, dist = Math.sqrt(dx * dx + dy * dy);
+        var v = 60;
+        if (dist < 35) v = 200;
+        if (x > 120 && x < 175 && y > 100 && y < 155) v = 220;
+        g[y * W + x] = v;
+      }
+      return g;
+    }
+    function drawStarburstGray() {
+      var g = new Float64Array(W * H).fill(50);
+      var cx = W / 2, cy = H / 2, dirs = 8;
+      for (var y = 0; y < H; y++) {
+        for (var x = 0; x < W; x++) {
+          var dx = x - cx, dy = y - cy, dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 90) continue;
+          var ang = Math.atan2(dy, dx);
+          var sector = ((ang + Math.PI) / (2 * Math.PI)) * (dirs * 2);
+          var frac = Math.abs(sector - Math.round(sector));
+          if (frac < 0.045 && dist > 4) g[y * W + x] = 230;
+        }
+      }
+      return g;
+    }
+    function renderGray(canvas, arr, mode) {
+      var ctx = canvas.getContext("2d");
+      var img = ctx.createImageData(W, H);
+      for (var p = 0; p < arr.length; p++) {
+        var raw = arr[p], v;
+        if (mode === "signed") v = clamp(Math.round(raw), 0, 255);
+        else v = clamp(Math.round(Math.abs(raw)), 0, 255);
+        var o = p * 4;
+        img.data[o] = v; img.data[o + 1] = v; img.data[o + 2] = v; img.data[o + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    var baseBlob = drawBlobShapeGray();
+    var baseStar = drawStarburstGray();
+    [el.c1_src, el.c1_direct, el.c1_blurred, el.c2_twopass, el.c2_onepass,
+     el.c3_src, el.c3_gx, el.c3_gy, el.c3_mag, el.c3_log].forEach(function (c) { c.width = W; c.height = H; });
+
+    // ================= shared state for hover inspectors =================
+    var step4State = { signal: null, kernel: null, range: null };
+    var state2D = { noisy: null, combined: null, gK: null };
+
+    // ================= main recompute =================
+    function recompute() {
+      var sigma = Number(el.sigmaSlider.value);
+      var noiseAmp = Number(el.noiseSlider.value);
+      el.sigmaVal.textContent = sigma.toFixed(1);
+      el.noiseVal.textContent = noiseAmp;
+
+      // ---------- 1D ----------
+      var gK1 = gaussianKernel1D(gaussianSize(sigma), sigma);
+      var combined1 = convolveKernels1D(gK1, LAP1D); // Laplacian⊛Gaussian
+      var closed1 = logKernel1DClosedForm(combined1.length, sigma);
+      var noisy1 = addNoiseToArray(base1D, noiseAmp);
+
+      var lapOnly1 = applyFilter1D(noisy1, N1D, LAP1D);
+      var gaussOnly1 = applyFilter1D(noisy1, N1D, gK1);
+      var onePass1 = applyFilter1D(noisy1, N1D, combined1);
+
+      var sigRange = autoRange([noisy1, gaussOnly1]);
+      setPath1D(el.s1_signal, noisy1, sigRange.min, sigRange.max);
+      setPath1D(el.s3_output, gaussOnly1, sigRange.min, sigRange.max);
+
+      var lapRange = autoRange([lapOnly1]);
+      setPath1D(el.s2_output, lapOnly1, lapRange.min, lapRange.max);
+
+      var combinedRange = autoRange([onePass1]);
+      el.s4_output_path.setAttribute("d", pathFor1D(onePass1, combinedRange.min, combinedRange.max));
+      step4State.signal = noisy1; step4State.kernel = combined1; step4State.range = combinedRange;
+
+      kernelTable(el.s2_kernel, LAP1D);
+      kernelTable(el.s3_kernel, gK1);
+      kernelTable(el.s4_kernel, combined1);
+      kernelShape1D(el.s2_kernelShape, LAP1D);
+      kernelShape1D(el.s3_kernelShape, gK1);
+      kernelShape1D(el.s4_kernelShape, combined1);
+      kernelTable(el.k4_combined_1d, combined1);
+      kernelTable(el.k4_closed_1d, closed1);
+
+      // ---------- 2D ----------
+      var gK = gaussianKernel(gaussianSize(sigma), sigma);
+      var combined = convolveKernels(gK, LAPLACIAN4);
+      var closedForm = logKernelClosedForm(combined.length, sigma);
+      var noisy = addNoiseToArray(baseBlob, noiseAmp);
+      state2D.noisy = noisy; state2D.combined = combined;
+
+      renderGray(el.c1_src, noisy, "signed");
+      var directLap = applyFilter(noisy, W, H, LAPLACIAN4);
+      renderGray(el.c1_direct, directLap, "abs");
+      var blurredFirst = applyFilter(noisy, W, H, gK);
+      var blurThenLap = applyFilter(blurredFirst, W, H, LAPLACIAN4);
+      renderGray(el.c1_blurred, blurThenLap, "abs");
+
+      renderGray(el.c2_twopass, blurThenLap, "abs");
+      var onePass = applyFilter(noisy, W, H, combined);
+      renderGray(el.c2_onepass, onePass, "abs");
+      var margin = 8, maxDiff = 0;
+      for (var y = margin; y < H - margin; y++) {
+        for (var x = margin; x < W - margin; x++) {
+          var idx = y * W + x;
+          maxDiff = Math.max(maxDiff, Math.abs(blurThenLap[idx] - onePass[idx]));
+        }
+      }
+      el.c2_diff.textContent = maxDiff.toFixed(4);
+      kernelTable(el.k2_gauss, gK);
+      kernelTable(el.k2_lap, LAPLACIAN4);
+      kernelTable(el.k2_combined, combined);
+
+      renderGray(el.c3_src, baseStar, "signed");
+      renderGray(el.c3_gx, applyFilter(baseStar, W, H, SOBEL_GX), "abs");
+      renderGray(el.c3_gy, applyFilter(baseStar, W, H, SOBEL_GY), "abs");
+      renderGray(el.c3_mag, applyMagnitude(baseStar, W, H, SOBEL_GX, SOBEL_GY), "abs");
+      renderGray(el.c3_log, applyFilter(baseStar, W, H, combined), "abs");
+
+      kernelTable(el.k4_combined, combined);
+      kernelTable(el.k4_closed, closedForm);
+    }
+
+    // ================= 1D hover inspector (shared by step 4 and step 5 charts) =================
+    function makeHoverInspector1D(svgEl, hoverLine, hoverDot, inspectEmpty, inspectBody, posLabel, calcTerms, calcFinal, getState) {
+      svgEl.addEventListener("mousemove", function (evt) {
+        var st = getState();
+        if (!st.kernel) return;
+        var rect = svgEl.getBoundingClientRect();
+        var relX = (evt.clientX - rect.left) / rect.width * CW1D;
+        var n = clampCoord(Math.round((relX / CW1D) * (N1D - 1)), N1D);
+        var px = xScale1D(n);
+        var py = CH1D - PADY - (convolve1DAt(st.signal, N1D, n, st.kernel) - st.range.min) / (st.range.max - st.range.min) * (CH1D - 2 * PADY);
+        hoverLine.setAttribute("x1", px); hoverLine.setAttribute("x2", px); hoverLine.setAttribute("opacity", "0.8");
+        hoverDot.setAttribute("cx", px); hoverDot.setAttribute("cy", py); hoverDot.setAttribute("opacity", "1");
+
+        var kernel = st.kernel, kLen = kernel.length, off = Math.floor((kLen - 1) / 2);
+        var terms = [], sum = 0;
+        for (var j = 0; j < kLen; j++) {
+          var idx = clampCoord(n + (j - off), N1D);
+          var pv = Math.round(st.signal[idx]), w = kernel[j];
+          sum += w * pv; terms.push({ w: w, pv: pv });
+        }
+        inspectEmpty.style.display = "none";
+        inspectBody.style.display = "flex";
+        posLabel.textContent = "ตำแหน่ง: n=" + n + " (ค่าสัญญาณต้นฉบับ ณ จุดนี้ = " + Math.round(st.signal[n]) + ")";
+        calcTerms.innerHTML = terms.map(function (t) {
+          var cls = t.w > 0.0001 ? "pos" : (t.w < -0.0001 ? "neg" : "");
+          return '<span class="calc-term ' + cls + '">' + fmt(t.w) + "×" + t.pv + "</span>";
+        }).join("");
+        calcFinal.innerHTML = "ผลรวม (ค่าจริงของ operator ที่ตำแหน่งนี้) = <b>" + fmt(sum) + "</b>";
+      });
+      svgEl.addEventListener("mouseleave", function () {
+        hoverLine.setAttribute("opacity", "0"); hoverDot.setAttribute("opacity", "0");
+      });
+    }
+    makeHoverInspector1D(el.s4_output, el.s4_hoverline, el.s4_hoverdot, el.s4_inspectEmpty, el.s4_inspectBody, el.s4_posLabel, el.s4_calcTerms, el.s4_calcFinal, function () { return step4State; });
+
+    // ================= 2D hover inspector =================
+    el.c2_onepass.addEventListener("mousemove", function (evt) {
+      var rect = el.c2_onepass.getBoundingClientRect();
+      var px = clampCoord(Math.floor((evt.clientX - rect.left) / rect.width * W), W);
+      var py = clampCoord(Math.floor((evt.clientY - rect.top) / rect.height * H), H);
+      el.c2_marker.style.left = ((px + 0.5) / W * 100) + "%";
+      el.c2_marker.style.top = ((py + 0.5) / H * 100) + "%";
+      el.c2_marker.style.display = "block";
+
+      var kernel = state2D.combined, kh = kernel.length, kw = kernel[0].length;
+      var offR = Math.floor((kh - 1) / 2), offC = Math.floor((kw - 1) / 2);
+      var terms = [], sum = 0;
+      for (var i = 0; i < kh; i++) {
+        for (var j = 0; j < kw; j++) {
+          var sx = clampCoord(px + (j - offC), W), sy = clampCoord(py + (i - offR), H);
+          var pv = Math.round(state2D.noisy[sy * W + sx]), w = kernel[i][j];
+          sum += w * pv; terms.push({ w: w, pv: pv });
+        }
+      }
+      el.c2_inspectEmpty.style.display = "none";
+      el.c2_inspectBody.style.display = "flex";
+      el.c2_posLabel.textContent = "ตำแหน่ง: x=" + px + ", y=" + py + " (49 พจน์ จาก kernel 7×7 — แสดงเฉพาะผลรวม)";
+      var nonZeroTerms = terms.filter(function (t) { return Math.abs(t.w) > 0.0001; });
+      el.c2_calcTerms.innerHTML = nonZeroTerms.slice(0, 24).map(function (t) {
+        var cls = t.w > 0.0001 ? "pos" : "neg";
+        return '<span class="calc-term ' + cls + '">' + fmt(t.w) + "×" + t.pv + "</span>";
+      }).join("") + (nonZeroTerms.length > 24 ? '<span class="calc-term">+' + (nonZeroTerms.length - 24) + ' พจน์อื่น</span>' : "");
+      el.c2_calcFinal.innerHTML = "ผลรวมทั้งหมด (ค่าจริงของ operator ที่ตำแหน่งนี้) = <b>" + fmt(sum) + "</b>";
+    });
+    el.c2_onepass.addEventListener("mouseleave", function () {
+      el.c2_marker.style.display = "none";
+    });
+
+    // ================= events =================
+    el.sigmaSlider.addEventListener("input", recompute);
+    el.noiseSlider.addEventListener("input", recompute);
+    el.mathToggle.addEventListener("click", function () {
+      var show = el.mathBody.hidden;
+      el.mathBody.hidden = !show;
+      el.mathToggle.setAttribute("aria-expanded", String(show));
+      el.mathToggle.textContent = show ? "ซ่อนสูตร" : "แสดงสูตรคำนวณ";
+    });
+
+    setMode("1d");
+    recompute();
+  })();
+</script>
