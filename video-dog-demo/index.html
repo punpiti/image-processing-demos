@@ -151,6 +151,7 @@
     </div>
     <div id="webcamControls" class="source-controls" style="display: none;">
       <button id="webcamBtn" class="btn-primary" type="button">เปิดกล้อง</button>
+      <button id="facingBtn" class="btn-primary" type="button" hidden style="background: var(--surface-2); color: var(--text-secondary); border: 1.5px solid var(--border);">🔄 สลับหน้า/หลัง</button>
       <select id="cameraSelect" hidden></select>
       <p class="section-note" id="webcamStatus"></p>
     </div>
@@ -281,7 +282,7 @@
   "use strict";
 
   var el = {};
-  ["fileControls", "webcamControls", "fileInput", "webcamBtn", "cameraSelect", "webcamStatus",
+  ["fileControls", "webcamControls", "fileInput", "webcamBtn", "facingBtn", "cameraSelect", "webcamStatus",
    "origCanvas", "origFrame", "placeholder", "dogCanvas", "dogFrame",
    "procResLabel", "frameTimeLabel", "fpsLabel",
    "sigma1Slider", "sigma1Val", "kSlider", "kVal", "gainSlider", "gainVal",
@@ -509,26 +510,48 @@
     }).catch(function () { el.cameraSelect.hidden = true; });
   }
 
-  function openCamera(deviceId) {
-    el.webcamStatus.textContent = "กำลังขอสิทธิ์กล้อง...";
-    var videoConstraints = deviceId
-      ? { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } }
-      : { width: { ideal: 640 }, height: { ideal: 480 } };
+  // facingMode ("user"/"environment") is the mobile-idiomatic way to pick
+  // front vs. back — more reliable across phone browsers (esp. iOS Safari)
+  // than deviceId enumeration, which can be flaky or list extra lenses.
+  // Offered as a second, independent switching method alongside the
+  // deviceId dropdown above, not a replacement for it.
+  var nextFacingMode = "environment";
+
+  function requestCamera(deviceId, facingMode) {
+    var videoConstraints = { width: { ideal: 640 }, height: { ideal: 480 } };
+    if (deviceId) videoConstraints.deviceId = { exact: deviceId };
+    else if (facingMode) videoConstraints.facingMode = { ideal: facingMode };
     navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false })
       .then(function (s) {
-        stopCurrentSource();
         stream = s;
         video.srcObject = s;
         video.play().catch(function (err) { console.warn(err); });
         el.webcamStatus.textContent = "กล้องเปิดอยู่";
+        el.facingBtn.hidden = false;
+        if (facingMode) nextFacingMode = facingMode === "environment" ? "user" : "environment";
         populateCameraList(s);
       })
       .catch(function (err) {
-        el.webcamStatus.textContent = "เปิดกล้องไม่สำเร็จ: " + (err && err.message ? err.message : String(err));
+        var msg = err && err.name ? err.name + (err.message ? " — " + err.message : "") : String(err);
+        el.webcamStatus.textContent = "เปิดกล้องไม่สำเร็จ: " + msg;
       });
+  }
+
+  function openCamera(deviceId, facingMode) {
+    el.webcamStatus.textContent = "กำลังขอสิทธิ์กล้อง...";
+    // Release the current camera *before* requesting a different one — most
+    // phones only allow one active capture session per camera hardware. A
+    // short delay after stop() matters too: the OS doesn't always free the
+    // hardware in the same tick, so requesting immediately can fail with
+    // NotReadableError even though the old track already reports "stopped".
+    var hadStream = !!stream;
+    stopCurrentSource();
+    if (hadStream) setTimeout(function () { requestCamera(deviceId, facingMode); }, 300);
+    else requestCamera(deviceId, facingMode);
   }
   el.webcamBtn.addEventListener("click", function () { openCamera(); });
   el.cameraSelect.addEventListener("change", function () { openCamera(el.cameraSelect.value); });
+  el.facingBtn.addEventListener("click", function () { openCamera(undefined, nextFacingMode); });
 
   el.qualitySelect.addEventListener("change", function () { if (videoActive) applyResolution(); });
 
